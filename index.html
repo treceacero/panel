@@ -342,7 +342,7 @@ window.addEventListener("unhandledrejection", (e) => mostrarFalla((e.reason && (
 setTimeout(() => { if (document.getElementById("cargando") && !document.querySelector(".ingreso")) mostrarFalla("La planilla no respondió en 20 segundos (google.script.run " + (typeof google !== "undefined" && google.script ? "existe" : "NO existe") + ")"); }, 20000);
 </script>
 <script>
-const PRIVADO = location.hostname === "treceacero.github.io";   // las pantallas se piden con sesión por o.html: el código no queda público
+const PRIVADO = !!window.__PRIVADO;   // solo la versión que entrega el servidor (armar-privado.py) pide las pantallas por o.html   // las pantallas se piden con sesión por o.html: el código no queda público
 const WEB = new URLSearchParams(location.search).get("web") || (PRIVADO ? location.origin + location.pathname.replace(/[^/]*$/, "") : "https://shock702026.github.io/ticker-13a0/");
 const QS = new URLSearchParams(location.search);
 const PUENTE = QS.has("puente");   // abierto desde Apps Script (el puente guarda en la planilla)
