@@ -200,6 +200,7 @@
   .grilla-fotos { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:12px; }
   .foto-a { background:#fff; outline:1px solid var(--linea); outline-offset:-1px; display:flex; flex-direction:column; }
   .foto-a.dejar { outline:3px solid var(--verde); outline-offset:-3px; }
+  .foto-a.borrada { opacity:.5; justify-content:center; align-items:center; background:var(--fondo); font:800 14px var(--f); color:var(--gris); }
   .foto-a .ft { display:block; aspect-ratio:11/20; max-height:300px; background:#ddd center/cover no-repeat; }
   .foto-a .tx { padding:8px 10px; display:flex; flex-direction:column; gap:3px; min-width:0; } .foto-a .tx b { font-size:14px; line-height:1.25; }
   .foto-a .tx small { font-size:11px; color:var(--gris); }
@@ -341,7 +342,8 @@ window.addEventListener("unhandledrejection", (e) => mostrarFalla((e.reason && (
 setTimeout(() => { if (document.getElementById("cargando") && !document.querySelector(".ingreso")) mostrarFalla("La planilla no respondió en 20 segundos (google.script.run " + (typeof google !== "undefined" && google.script ? "existe" : "NO existe") + ")"); }, 20000);
 </script>
 <script>
-const WEB = new URLSearchParams(location.search).get("web") || "https://shock702026.github.io/ticker-13a0/";
+const PRIVADO = location.hostname === "treceacero.github.io";   // las pantallas se piden con sesión por o.html: el código no queda público
+const WEB = new URLSearchParams(location.search).get("web") || (PRIVADO ? location.origin + location.pathname.replace(/[^/]*$/, "") : "https://shock702026.github.io/ticker-13a0/");
 const QS = new URLSearchParams(location.search);
 const PUENTE = QS.has("puente");   // abierto desde Apps Script (el puente guarda en la planilla)
 const PRUEBA = !PUENTE && (QS.has("prueba") || QS.has("permisos") || QS.has("web"));   // solo lectura, para probar
@@ -505,7 +507,7 @@ function interruptor(texto, on, sub, onChange) {
 }
 // versión de las pantallas: va en cada link, así el navegador no muestra copias viejas guardadas
 const VER = "20261106";
-const conVer = (src) => src + (src.includes("?") ? "&" : "?") + "v=" + VER;
+const conVer = (src) => { const m = PRIVADO && src.match(/^(.*\/)([\w-]+)\.html\??(.*)$/), u = m ? m[1] + "o.html?a=" + m[2] + (m[3] ? "&" + m[3] : "") : src; return u + (u.includes("?") ? "&" : "?") + "v=" + VER; };
 function vistaPrevia(src, cls = "") {
   const pv = h(`<div class="pv ${cls}"><iframe src="${conVer(src)}"></iframe></div>`);
   requestAnimationFrame(() => escalar(pv)); setTimeout(() => escalar(pv), 300);
@@ -655,7 +657,7 @@ async function correrColaN() {
     const [fn, args] = colaN[0];
     try { await srv(fn, ...args); colaN.shift(); }
     catch (e) {   // lo que seguía en la cola contaba con este cambio: se descarta y se vuelve a lo que dice la planilla
-      const n = colaN.length - 1; colaN.length = 0; corriendoN = false;
+      const n = colaN.length - 1; colaN.length = 0; corriendoN = false; FOT = null;
       aviso((e.message || String(e)) + (n ? ` · no se guardaron ${n} cambios más` : ""), true);
       try { await recargar(); } catch (x) {}
       return;
@@ -727,9 +729,16 @@ let FOT = null, filtroF = "revisar";
 async function vistaFotos(m) {
   m.innerHTML = titulo("Noticias") + subNoticias() + `<div class="aviso">Cargando el archivo de fotos…</div>`;
   enlazarSubNoticias(m);
+  if (FOT) { pintarFotos(m); srv("leerFotos").then((x) => { if (!colaN.length && !corriendoN) FOT = x; }).catch(() => {}); return; }   // lo ya cargado aparece al instante; lo nuevo queda para la próxima vez
   try { FOT = await srv("leerFotos"); } catch (e) { m.querySelector(".aviso").textContent = e.message || String(e); return; }
   if (seccion !== "noticias" || subNot !== "fotos") return;
   pintarFotos(m);
+}
+// Dejar, Borrar, autor y comodín responden al instante y cada foto queda en su lugar: el servidor se entera atrás, en orden
+function contarFotos(m) {
+  const n = { revisar: FOT.filter((f) => !f.decision).length, dejar: FOT.filter((f) => f.decision === "dejar").length, comodines: FOT.filter((f) => f.comodin).length, todas: FOT.length };
+  const T = { revisar: "Sin revisar", dejar: "Para reutilizar", comodines: "Comodines", todas: "Todas" };
+  m.querySelectorAll("[data-ff]").forEach((b) => (b.textContent = T[b.dataset.ff] + " (" + n[b.dataset.ff] + ")"));
 }
 function pintarFotos(m) {
   const sin = FOT.filter((f) => !f.decision), edita = puede("noticias");
@@ -747,14 +756,16 @@ function pintarFotos(m) {
       <div class="tx"><b>${esc(f.titular || "(sin titular)")}</b>${edita ? `<label class="autor">Autor<input type="text" value="${esc(f.credito || "")}" placeholder="Ej.: Mauricio Zina / adhocFOTOS"></label><label class="autor comodin">Comodín para<input type="text" value="${esc(f.comodin || "")}" placeholder="Ej.: Peñarol, Clausura"></label>` : `<small>${esc(f.credito || "sin autor")}${f.comodin ? " · comodín: " + esc(f.comodin) : ""}</small>`}<small>${esc(fechaTxt(f.fecha))} · ${f.usos} ${f.usos === 1 ? "uso" : "usos"}${f.enUso ? " · <em>en una noticia ahora</em>" : ""}</small></div>
       ${edita ? `<div class="acc"><button class="btn ok chico" data-d="dejar">${f.decision === "dejar" ? "✓ Queda" : "Dejar"}</button><button class="btn chico rojo-b" data-d="borrar">Borrar</button></div>` : ""}</div>`);
     const au = c.querySelector(".autor:not(.comodin) input"), co = c.querySelector(".comodin input");
-    if (au) au.onchange = async () => { const v = au.value.trim(); try { await guardar("editarFoto", f.imagen, v); f.credito = v; aviso("Autor guardado"); } catch (e) { au.value = f.credito || ""; } };
-    if (co) co.onchange = async () => { const v = co.value.trim(); try { await guardar("editarFoto", f.imagen, null, v); f.comodin = v; if (v) f.decision = "dejar"; aviso(v ? "Comodín guardado: se usa en noticias de " + v : "Ya no es comodín"); pintarFotos(m); } catch (e) { co.value = f.comodin || ""; } };
-    c.querySelectorAll("[data-d]").forEach((b) => (b.onclick = async () => {
+    const bDejar = c.querySelector('[data-d="dejar"]');
+    const marcarDejar = () => { f.decision = "dejar"; c.classList.add("dejar"); if (bDejar) bDejar.textContent = "✓ Queda"; };
+    if (au) au.onchange = () => { const v = au.value.trim(); f.credito = v; enCola("editarFoto", [f.imagen, v]); };
+    if (co) co.onchange = () => { const v = co.value.trim(); f.comodin = v; if (v) marcarDejar(); enCola("editarFoto", [f.imagen, null, v]); contarFotos(m); };
+    c.querySelectorAll("[data-d]").forEach((b) => (b.onclick = () => {
       const d = b.dataset.d;
       if (d === "borrar" && f.enUso && !b.dataset.ok) { b.dataset.ok = 1; b.textContent = "¿Seguro? Está en uso"; return; }
-      c.querySelectorAll("button").forEach((x) => (x.disabled = true));
-      try { await guardar("decidirFoto", f.imagen, d); if (d === "borrar") FOT = FOT.filter((x) => x !== f); else f.decision = "dejar"; pintarFotos(m); }
-      catch (e) { c.querySelectorAll("button").forEach((x) => (x.disabled = false)); }
+      if (d === "dejar") { if (f.decision === "dejar") return; marcarDejar(); }
+      else { FOT = FOT.filter((x) => x !== f); c.style.minHeight = c.offsetHeight + "px"; c.className = "foto-a borrada"; c.textContent = "Borrada · va a la papelera de Drive"; }   // el hueco queda: las demás no se corren
+      enCola("decidirFoto", [f.imagen, d]); contarFotos(m);
     }));
     G.appendChild(c);
   });
@@ -1416,9 +1427,9 @@ function tablaEditable(cont, t, cols, opc = {}) {
 VISTAS.ticker = (m) => {
   m.innerHTML = titulo("Ticker") + `<div class="cuerpo" style="grid-template-columns:minmax(420px,1fr) minmax(420px,1fr)"><div style="display:flex;flex-direction:column;gap:20px"><div class="card form" id="fa"></div><div class="card form" id="fpr"></div></div><div class="card vista" id="vt"></div></div>
     <div class="card form todo-ticker"><h2><i style="background:var(--amarillo)"></i>Todo el material del día</h2><span class="ayuda" style="font-size:12px;color:var(--gris);font-weight:600">Todos los bloques que pasan por la cinta, uno abajo del otro. Arriba podés elegir otro día de la semana.</span>
-      <iframe src="${WEB}ticker.html?vista&v=20261030b" title="Todo el material del ticker" loading="lazy"></iframe><a href="${WEB}ticker.html?vista" target="_blank" style="font-weight:700">Abrir en pantalla completa ↗</a></div>
+      <iframe src="${conVer(WEB + "ticker.html?vista")}" title="Todo el material del ticker" loading="lazy"></iframe><a href="${conVer(WEB + "ticker.html?vista")}" target="_blank" style="font-weight:700">Abrir en pantalla completa ↗</a></div>
     <div class="card form todo-ticker"><h2><i style="background:var(--rojo)"></i>Resultados de la tanda</h2><span class="ayuda" style="font-size:12px;color:var(--gris);font-weight:600">Los partidos que van rotando en la tanda del OBS, todos juntos y en el mismo orden. Se actualiza solo.</span>
-      <iframe src="${WEB}tanda.html?resultados&v=20261030b" title="Resultados de la tanda"></iframe><a href="${WEB}tanda.html?resultados" target="_blank" style="font-weight:700">Abrir en pantalla completa ↗</a></div>`;
+      <iframe src="${conVer(WEB + "tanda.html?resultados")}" title="Resultados de la tanda"></iframe><a href="${conVer(WEB + "tanda.html?resultados")}" target="_blank" style="font-weight:700">Abrir en pantalla completa ↗</a></div>`;
   const V = m.querySelector("#vt");
   V.innerHTML = `<div class="tit"><span class="et">EN VIVO</span><span>El ticker como está ahora</span></div>`;
   V.appendChild(vistaPrevia(WEB + "ticker.html", "negro"));
@@ -1448,7 +1459,7 @@ async function nombresEspanol(m) {
     <input type="text" id="nb-f" placeholder="Buscar equipo o liga…"><div id="nb-l" class="nb-lista">Cargando…</div></div>`);
   m.appendChild(C);
   let L = [];
-  try { const t = await (await fetch(conVer(WEB + "nombres.js"))).text(); L = JSON.parse(t.slice(t.indexOf("=") + 1).trim().replace(/;\s*$/, "")).lista || []; }
+  try { const t = window.__NOMBRES || await (await fetch(conVer(WEB + "nombres.js"))).text(); L = JSON.parse(t.slice(t.indexOf("=") + 1).trim().replace(/;\s*$/, "")).lista || []; }
   catch (e) { C.querySelector("#nb-l").textContent = "No se pudo leer la lista de nombres."; return; }
   const pintar = () => {
     const norm = (t) => String(t).normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/ø/gi, "o").replace(/ß/g, "ss").replace(/ı/g, "i").toLowerCase();
@@ -2260,7 +2271,7 @@ function ingresar() {
     login();
   });
 }
-function salir() { if (API) { srv("salir").catch(() => {}); guardado("panel13a0.ses", null); guardado(COPIA, null); location.reload(); } }
+function salir() { if (API) { srv("salir").catch(() => {}); guardado("panel13a0.ses", null); guardado(COPIA, null); guardado("panel13a0.app", null); location.reload(); } }
 (async () => {
   try { if (API && !guardado("panel13a0.ses")) await ingresar(); 
     const copia = leerCopia(), sec = new URLSearchParams(location.search).get("seccion") || "inicio";
