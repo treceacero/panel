@@ -241,7 +241,6 @@
   .esc-v img { max-width:100%; max-height:100%; object-fit:contain; }
   .pv-tabs { display:flex; flex-wrap:wrap; gap:6px; align-items:center; padding-bottom:12px; border-bottom:2px solid var(--linea); margin-bottom:4px; position:sticky; top:0; background:var(--blanco); z-index:3; }
   .pv-tabs .chip { font-size:14px; } .pv-estado { margin-left:auto; font:800 12px var(--f); color:var(--gris); } .pv-estado.ok { color:var(--verde); }
-  .sofa { display:flex; flex-direction:column; gap:8px; } .sofa-w { display:flex; gap:14px; flex-wrap:wrap; align-items:flex-start; } .sofa iframe { border:0; width:100%; max-width:540px; height:460px; background:var(--fondo); }
   .esc-bus { display:flex; flex-direction:column; gap:8px; padding:10px; background:var(--fondo); } .esc-res { display:grid; grid-template-columns:repeat(auto-fill,minmax(92px,1fr)); gap:8px; max-height:260px; overflow:auto; }
   .esc-res button { display:flex; flex-direction:column; align-items:center; gap:4px; padding:6px; background:var(--blanco); border:2px solid transparent; font:700 11px var(--f); color:var(--azul); cursor:pointer; text-align:center; }
   .esc-res button:hover { border-color:var(--celeste); } .esc-res img { width:48px; height:48px; object-fit:contain; } .esc-v[tabindex] { cursor:pointer; outline:2px dashed var(--linea); } .esc-v:focus { outline-color:var(--celeste); }
@@ -1189,7 +1188,7 @@ VISTAS.partido = (m) => {
       <label>Incidencias<textarea rows="3">${esc(st.incidencias)}</textarea><span class="ayuda">Una por línea o separadas por «;». L = local, V = visitante. Ej.: L 21 Nombre Apellido · V 58 Otro Nombre roja</span></label></div>`);
     const ins = G2.querySelectorAll("input"), ta = G2.querySelector("textarea");
     const mapa = ["local", "visitante", "estadio", "fase", "goles_local", "goles_visitante"];
-    ins.forEach((inp, i) => (inp.oninput = () => set(mapa[i], inp.value)));
+    ins.forEach((inp, i) => { inp.oninput = () => set(mapa[i], inp.value); if (i < 2) inp.onchange = () => limpiarViejas(st.local, st.visitante); });
     ta.oninput = () => set("incidencias", ta.value);
     const ahora = () => new Date().toTimeString().slice(0, 5);
     const minuto = () => { const mm = (st.inicio_tiempo || "").match(/(\d+):(\d+)/); if (!mm) return ""; const d = new Date(); d.setHours(+mm[1], +mm[2], 0, 0); let x = Math.max(1, Math.floor((Date.now() - d) / 60000) + 1); if (/2/.test(st.estado || "")) x += 45; const base = /2/.test(st.estado || "") ? 90 : 45; return x > base ? base + "+" + (x - base) : String(x); };   // descuento: 45+1, 90+2
@@ -1474,10 +1473,19 @@ VISTAS.partido = (m) => {
     z.querySelector("input[type=file]").onchange = (e) => { sumar(k, e.target.files); e.target.value = ""; };
   });
   contar();
+  // alineaciones viejas: las de equipos que no juegan este partido se borran solas (quedaban, por ejemplo, las de Nacional al cambiar de partido)
+  const limpiarViejas = (a, b) => {
+    const ok = [a, b].map((x) => sinT(x || "").trim()).filter(Boolean); if (ok.length < 2) return;
+    const lineas = (st.alineacion || "").split("\n").filter((l) => l.trim()), juega = (l) => { const e = sinT(String(l).split(/[:(]/)[0]).trim(); return ok.some((x) => e && (e === x || e.includes(x) || x.includes(e))); };
+    const quedan = lineas.filter(juega); if (quedan.length === lineas.length) return;
+    const fuera = lineas.filter((l) => !juega(l)).map((l) => String(l).split(/[:(]/)[0].trim());
+    guardarA(quedan.join("\n")); aviso("Saqué la alineación vieja de " + fuera.join(" y ") + ": no juega este partido");
+  };
+  if (manual) limpiarViejas(st.local, st.visitante);
   let partidoA = null;
   if (!manual) partidosUruguayos(2).then((L) => {   // el partido de hoy (o el más cercano) para los nombres y el plantel
     const ahora = Date.now(); partidoA = L.sort((a, b) => Math.abs(new Date(a.fecha + "T" + a.hora) - ahora) - Math.abs(new Date(b.fecha + "T" + b.hora) - ahora))[0] || null;
-    if (partidoA) { if (!nl.value) nl.value = partidoA.local; if (!nv.value) nv.value = partidoA.visitante; }
+    if (partidoA) { if (!nl.value) nl.value = partidoA.local; if (!nv.value) nv.value = partidoA.visitante; limpiarViejas(partidoA.local, partidoA.visitante); }
     nl.placeholder = "Nombre del local";
   }).catch(() => {});
   const achicar = (f) => new Promise((ok, mal) => { const im = new Image(), u = URL.createObjectURL(f);
@@ -1530,20 +1538,6 @@ VISTAS.partido = (m) => {
     b.disabled = false; b.textContent = t0;
   };
   GA.querySelector("#a-ia").onclick = armar; GA.querySelector("#a-is").onclick = armar;
-  // SofaScore: se pega el código del recuadro (o el link del partido). SofaScore no deja que otro sitio lea sus datos,
-  // así que el panel muestra su recuadro oficial y abre el partido: de ahí se copia la alineación (o se saca una captura) y se pega en Titulares / Suplentes
-  const idSofa = (t) => { t = String(t || ""); const m = t.match(/[?&]id=(\d{5,})/) || t.match(/#id:(\d{5,})/) || t.match(/\/event\/(\d{5,})/) || t.match(/^\s*(\d{5,})\s*$/); return m ? m[1] : ""; };
-  const GS2 = h(`<div class="grupo sofa"><b>SofaScore</b>
-    <label>Pegá el código del recuadro de SofaScore o el link del partido<textarea rows="2" id="sf-in" placeholder='<iframe id="sofa-live-result-embed-…" src="https://widgets.sofascore.com/…?id=12345678…'>${esc(st.sofascore ? "https://www.sofascore.com/event/" + st.sofascore : "")}</textarea></label>
-    <div id="sf-ok"></div></div>`);
-  const pintarSofa = () => { const id = st.sofascore || "", O = GS2.querySelector("#sf-ok");
-    O.innerHTML = id ? `<div class="botonera"><a class="btn ce chico" target="_blank" rel="noopener" href="https://www.sofascore.com/event/${esc(id)}">↗ Abrir el partido en SofaScore</a><button class="btn sec chico" id="sf-x">Quitar</button></div>
-      <span class="ayuda">1) En SofaScore, abrí «Alineaciones». 2) Seleccioná y copiá los titulares (o sacá una captura) y pegalos en «Titulares» de cada equipo; lo mismo con los suplentes. 3) Tocá «Armar titulares» o «Armar suplentes». El resultado en vivo de SofaScore queda acá abajo para comparar.</span>
-      <div class="sofa-w"><iframe src="https://widgets.sofascore.com/es/embed/liveResult?id=${esc(id)}&widgetTheme=light" loading="lazy" scrolling="no" title="Resultado en vivo (SofaScore)"></iframe></div>` : `<span class="ayuda">Partido número: —</span>`;
-    const x = O.querySelector("#sf-x"); if (x) x.onclick = () => { set("sofascore", ""); GS2.querySelector("#sf-in").value = ""; pintarSofa(); }; };
-  GS2.querySelector("#sf-in").oninput = debounce((e) => { const id = idSofa(e.target.value); if (!e.target.value.trim()) return; if (!id) { aviso("No encontré el número del partido en lo que pegaste", true); return; } if (id !== st.sofascore) { set("sofascore", id); pintarSofa(); aviso("Partido de SofaScore n.º " + id + " guardado ✓"); } }, 500);
-  pintarSofa();
-  FA.appendChild(GS2);
   FA.appendChild(GA);
   // la pestaña en secciones: Partido · Tarjetas y cambios · Alineaciones · Pantalla
   const SECC = [["partido", "⚽ Partido"], ["sucesos", "🟨 Tarjetas y cambios"], ["alin", "👥 Alineaciones"], ["pantalla", "🖥 Pantalla"]];
