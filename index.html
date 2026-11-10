@@ -234,7 +234,10 @@
   .cal .ev.cancelada { background:#cfccdc; text-decoration:line-through; } .cal .ev.mia { background:var(--amarillo); color:var(--azul); } .cal .ev.sel { outline:3px solid var(--celeste); }
   .cal .aus { font:700 10px var(--f); color:var(--rojo); }
   .mes { display:flex; align-items:center; gap:10px; } .mes b { font:800 20px var(--slab); min-width:180px; text-align:center; }
-  .grilla { display:grid; grid-template-columns:repeat(auto-fit, minmax(250px, 1fr)); gap:12px; }
+  .grilla { display:grid; grid-template-columns:1fr 1fr; gap:8px; }   /* los dos equipos, uno al lado del otro */
+  .grilla .g-eq { padding:8px 6px; } .grilla .g-j { gap:2px; } .grilla .g-j .g-n { width:34px; padding:6px 2px; } .grilla .g-j .g-nom { padding:6px 5px; font-size:13px; }
+  .grilla .g-b[title="Subir"], .grilla .g-b[title="Bajar"] { display:none; }   /* se ordena arrastrando ⠿ */
+  @media (max-width:760px) { .grilla { grid-template-columns:1fr; } .grilla .g-b[title="Subir"], .grilla .g-b[title="Bajar"] { display:inline-block; } }
   .g-eq { outline:1px solid var(--linea); padding:10px; display:flex; flex-direction:column; gap:5px; min-width:0; }
   .g-cab { display:flex; align-items:center; gap:8px; flex-wrap:wrap; } .g-cab b { font:900 16px var(--f); } .g-cab select { width:auto; padding:6px 8px; font-size:14px; }
   .g-cuenta { margin-left:auto; font:800 12px var(--f); color:var(--verde); } .g-cuenta.mal { color:var(--rojo); }
@@ -1135,7 +1138,7 @@ VISTAS.partido = (m) => {
     ins.forEach((inp, i) => (inp.oninput = () => set(mapa[i], inp.value)));
     ta.oninput = () => set("incidencias", ta.value);
     const ahora = () => new Date().toTimeString().slice(0, 5);
-    const minuto = () => { const mm = (st.inicio_tiempo || "").match(/(\d+):(\d+)/); if (!mm) return ""; const d = new Date(); d.setHours(+mm[1], +mm[2], 0, 0); let x = Math.max(1, Math.floor((Date.now() - d) / 60000) + 1); if (/2/.test(st.estado || "")) x += 45; return String(x); };
+    const minuto = () => { const mm = (st.inicio_tiempo || "").match(/(\d+):(\d+)/); if (!mm) return ""; const d = new Date(); d.setHours(+mm[1], +mm[2], 0, 0); let x = Math.max(1, Math.floor((Date.now() - d) / 60000) + 1); if (/2/.test(st.estado || "")) x += 45; const base = /2/.test(st.estado || "") ? 90 : 45; return x > base ? base + "+" + (x - base) : String(x); };   // descuento: 45+1, 90+2
     const vivo = async (c) => { ultimoPartido = Object.fromEntries(Object.keys(c).map((k) => [k, st[k] || ""])); Object.assign(st, c); D.partido = conClaves(D.partido, c); enCola("guardarClaves", ["partido_vivo", c]); sellar(); VISTAS.partido(m); };
     G2.querySelectorAll("[data-e]").forEach((b) => (b.onclick = () => vivo(Object.assign({ estado: b.dataset.e }, /T$/.test(b.dataset.e) ? { inicio_tiempo: ahora() } : {}, b.dataset.e === "1T" && st.goles_local === "" ? { goles_local: "0", goles_visitante: "0" } : {}, b.dataset.e === "PREVIA" ? { inicio_tiempo: "", minuto: "", goles_local: "", goles_visitante: "" } : {}))));
     const agregar = (lado, roja) => {
