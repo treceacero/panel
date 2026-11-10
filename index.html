@@ -176,6 +176,15 @@
   /* Equipo y convocatorias */
   input[type=date], input[type=time], input[type=email], input[type=tel] { font:600 16px/1.2 var(--f); color:var(--azul); border:2px solid var(--linea); padding:10px 12px; background:#fff; width:100%; }
   .eq-grid { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:20px; align-items:start; }
+  .credencial { display:grid; grid-template-columns:110px minmax(0,1fr) 200px; gap:18px; align-items:center; background:var(--azul); color:#fff; padding:18px 20px; margin-bottom:20px; border-left:12px solid var(--amarillo); }
+  .credencial .cr-foto { width:110px; aspect-ratio:3/4; background:rgba(255,255,255,.12) center/cover no-repeat; }
+  .credencial .cr-datos { display:flex; flex-direction:column; gap:7px; min-width:0; } .credencial .cr-marca { font:800 12px var(--f); letter-spacing:.14em; text-transform:uppercase; opacity:.8; } .credencial .cr-marca i { font-style:normal; color:var(--celeste); }
+  .credencial .cr-nom { font:900 26px/1.05 var(--slab); } .credencial .cr-roles { display:flex; flex-wrap:wrap; gap:6px; } .credencial .cr-roles span { background:var(--amarillo); color:var(--azul); font:800 12px var(--f); padding:4px 8px; }
+  .credencial .cr-ac, .credencial .cr-ci { font:600 14px var(--f); } .credencial .vencida { color:#ff8a8a; font-weight:800; } .credencial em { opacity:.7; font-style:normal; }
+  .credencial .cr-acred { width:200px; aspect-ratio:3/2; background:rgba(255,255,255,.12) center/cover no-repeat; display:flex; align-items:center; justify-content:center; text-align:center; font:700 12px var(--f); opacity:.95; padding:8px; }
+  @media (max-width:760px) { .credencial { grid-template-columns:90px minmax(0,1fr); } .credencial .cr-foto { width:90px; } .credencial .cr-acred { grid-column:1 / -1; width:100%; } }
+  .doc-it { display:flex; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid var(--linea); flex-wrap:wrap; } .doc-tipo { background:var(--azul); color:#fff; font:800 12px var(--f); padding:4px 8px; }
+  .doc-nom { flex:1; min-width:120px; font-weight:700; display:flex; flex-direction:column; } .doc-nom small { color:var(--gris); font-weight:600; } .doc-b { display:flex; gap:6px; } .doc-b a.btn { text-decoration:none; }
   .carnet { display:flex; gap:14px; align-items:flex-start; flex-wrap:wrap; }
   .carnet .foto { width:120px; aspect-ratio:3/4; background:var(--fondo) center/cover no-repeat; outline:2px dashed var(--linea); outline-offset:-2px; display:flex; align-items:center; justify-content:center; color:var(--gris); font-weight:700; font-size:12px; text-align:center; padding:6px; flex:none; }
   .carnet .foto.acred { width:180px; aspect-ratio:3/2; }
@@ -225,6 +234,7 @@
     #impresion .hoja-tit { max-height:none; overflow:visible; outline:0; padding:0; font-size:15pt; }
     #impresion h3, #impresion h4 { break-after:avoid; }
   }
+  .pchip.extra { border-style:dashed; } .pchip.otro-em { background:transparent; border:2px dashed var(--gris); color:var(--gris); } .pchip.ausente[disabled] { cursor:not-allowed; opacity:.55; text-decoration:line-through; }
   .cal { display:grid; grid-template-columns:repeat(7, minmax(0,1fr)); gap:4px; }
   .cal .dn { font:800 11px var(--f); letter-spacing:.1em; color:var(--gris); text-transform:uppercase; padding:4px; }
   .cal .d { background:#fff; outline:1px solid var(--linea); min-height:96px; padding:6px; display:flex; flex-direction:column; gap:4px; min-width:0; }
@@ -1679,12 +1689,14 @@ VISTAS.accesos = (m) => {
 };
 
 /* ---------- Equipo: Mi perfil (todos), Equipo (madre) y Convocatorias ---------- */
-const ROLES_EQ = ["Relato", "Comentario", "Producción", "Estudios", "Vestuarios", "Operador estudios", "Operador estadio", "Apoyo"];
+const ROLES_EQ = ["Relato", "Comentario", "Producción", "Estudios", "Vestuarios", "Operador estudios", "Operador estadio", "Locutor comercial", "Apoyo"];
 const LOCACIONES = ["Estudio 13a0", "Estadio Centenario", "Gran Parque Central", "Estadio Campeón del Siglo", "Estadio Luis Franzini", "Estadio Luis Tróccoli",
   "Parque Alfredo Víctor Viera", "Estadio Jardines del Hipódromo", "Estadio Belvedere", "Parque Federico Omar Saroldi", "Parque Capurro", "Estadio Olímpico",
   "Parque Palermo", "Estadio Charrúa", "Parque Abraham Paladino", "Parque Osvaldo Roberto", "Parque Artigas (Las Piedras)", "Estadio Martínez Monegal (Canelones)",
   "Estadio Domingo Burgueño (Maldonado)", "Estadio Campus de Maldonado", "Estadio Antonio Ubilla (Melo)", "Estadio Alberto Suppici (Colonia)", "Estadio Atilio Paiva Olivera (Rivera)"];
 const MOTIVOS = { enfermedad: "Enfermedad", vacaciones: "Vacaciones", otro: "Otro" };
+const TALLES = ["XS", "S", "M", "L", "XL", "XXL", "XXXL"];
+const TIPOS_DOC = ["Cédula de identidad", "Licencia de conducir", "Carné de salud", "Pasaporte", "Credencial de prensa", "Otro"];
 const DIAS_C = ["lun", "mar", "mié", "jue", "vie", "sáb", "dom"];
 const fechaTxt = (f) => { if (!f) return ""; const [y, m, d] = f.split("-"); return ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"][new Date(+y, m - 1, +d).getDay()] + " " + (+d) + "/" + m; };
 const corta = (f) => { if (!f) return ""; const [, m, d] = f.split("-"); return (+d) + "/" + m; };
@@ -1728,7 +1740,16 @@ VISTAS.perfil = async (m) => {
   let R; try { R = await leerVista("perfil", "miPerfil", m); } catch (e) { caduca(seccion); m.querySelector(".aviso").textContent = e.message || String(e); return; }
   if (seccion !== "perfil") { caduca("perfil"); return; }
   const P = R.perfil, roles = P.roles ? P.roles.split("|") : [];
-  m.innerHTML = titulo("Mi perfil") + `<div class="eq-grid"><div class="card form" id="datos"></div><div style="display:flex;flex-direction:column;gap:20px"><div class="card form" id="roles"></div><div class="card form" id="aus"></div></div></div>`;
+  m.innerHTML = titulo("Mi perfil") + `<div class="credencial" id="cred"></div><div class="eq-grid"><div class="card form" id="datos"></div><div style="display:flex;flex-direction:column;gap:20px"><div class="card form" id="roles"></div><div class="card form" id="docs"></div><div class="card form" id="aus"></div></div></div>`;
+  // tarjeta de acreditación en la portada del perfil: foto carnet, nombre, roles y la acreditación (número y vencimiento)
+  const pintarCred = () => { const C = m.querySelector("#cred"), vence = P.acred_vence || "", vencida = vence && vence < hoyISO();
+    C.innerHTML = `<div class="cr-foto" id="cr-foto"></div><div class="cr-datos"><div class="cr-marca"><span>13<i>a</i>0</span> · Credencial</div><b class="cr-nom">${esc(P.nombre || D.yo)}</b>
+      <div class="cr-roles">${roles.length ? roles.map((r) => `<span>${esc(r)}</span>`).join("") : "<em>Sin roles asignados</em>"}</div>
+      <div class="cr-ac">${P.acred_numero ? `Acreditación N.º <b>${esc(P.acred_numero)}</b>` : "<em>Sin número de acreditación</em>"}${vence ? ` · <span class="${vencida ? "vencida" : ""}">${vencida ? "Venció" : "Vence"} ${esc(vence.split("-").reverse().join("/"))}</span>` : ""}</div>
+      ${P.cedula ? `<div class="cr-ci">C.I. ${esc(P.cedula)}</div>` : ""}</div><div class="cr-acred" id="cr-acred">${P.acred_id ? "" : "Subí la acreditación abajo"}</div>`;
+    const ff = m.querySelector("#f-foto"), fa = m.querySelector("#f-acred");
+    if (ff && ff.style.backgroundImage) C.querySelector("#cr-foto").style.backgroundImage = ff.style.backgroundImage;
+    if (fa && fa.style.backgroundImage) C.querySelector("#cr-acred").style.backgroundImage = fa.style.backgroundImage; else if (fa && /PDF/.test(fa.textContent)) C.querySelector("#cr-acred").textContent = "Acreditación en PDF ✓"; };
   const F = m.querySelector("#datos");
   F.innerHTML = `<h2><i style="background:var(--celeste)"></i>Mis datos</h2>
     <div class="carnet"><div class="foto" id="f-foto">Sin foto carnet</div><div style="display:flex;flex-direction:column;gap:8px;flex:1;min-width:180px">
@@ -1743,14 +1764,20 @@ VISTAS.perfil = async (m) => {
       <div class="carnet"><div class="foto acred" id="f-acred">Sin acreditación</div><div style="display:flex;flex-direction:column;gap:8px;flex:1;min-width:180px">
         <span class="btn sec chico subir">Subir foto o PDF<input type="file" accept="image/*,application/pdf" id="in-acred"></span><div class="chips" id="b-acred" hidden></div></div></div>
       <div class="dos"><label>Número<input type="text" name="acred_numero" value="${esc(P.acred_numero || "")}"></label><label>Vence<input type="date" name="acred_vence" value="${esc(P.acred_vence || "")}"></label></div></div>
-    <label>Notas<span class="ayuda">Talle, alergias, lo que sirva saber</span><textarea name="notas" rows="2">${esc(P.notas || "")}</textarea></label>
+    <label>Domicilio particular<input type="text" name="domicilio" value="${esc(P.domicilio || "")}" placeholder="Calle, número, apto., barrio"></label>
+    <div class="grupo"><b>Indumentaria y medidas</b>
+      <div class="dos">${[["talle_remera", "Talle de remera"], ["talle_campera", "Talle de campera"]].map(([k, t]) => `<label>${t}<select name="${k}">${["", ...TALLES].map((x) => `<option${(P[k] || "") === x ? " selected" : ""}>${x}</option>`).join("")}</select></label>`).join("")}</div>
+      <div class="dos"><label>Talle de pantalón<input type="text" name="talle_pantalon" value="${esc(P.talle_pantalon || "")}" placeholder="Ej.: 42 o M"></label><label>Talle de calzado<input type="number" name="talle_calzado" min="30" max="50" step="0.5" value="${esc(P.talle_calzado || "")}" placeholder="Ej.: 42"></label></div>
+      <div class="dos"><label>Altura (cm)<input type="number" name="altura" min="120" max="230" value="${esc(P.altura || "")}" placeholder="Ej.: 175"></label><label>Restricciones alimenticias<input type="text" name="alimentacion" value="${esc(P.alimentacion || "")}" placeholder="Ej.: celíaco, vegetariano, ninguna"></label></div></div>
+    <label>Notas<span class="ayuda">Alergias o lo que sirva saber</span><textarea name="notas" rows="2">${esc(P.notas || "")}</textarea></label>
     <div class="pie"><button class="btn am" id="g-datos">Guardar mis datos</button></div>
     <small style="color:var(--gris);font-weight:600">${esc(D.yo)}${P.actualizado ? " · actualizado " + esc(P.actualizado) : ""} · Solo lo ven vos y Trece A Cero.</small>`;
-  if (P.foto_id) mostrarArchivo(F.querySelector("#f-foto"), D.yo, "foto");
-  if (P.acred_id) mostrarArchivo(F.querySelector("#f-acred"), D.yo, "acred", F.querySelector("#b-acred"));
+  pintarCred();
+  if (P.foto_id) mostrarArchivo(F.querySelector("#f-foto"), D.yo, "foto").then(pintarCred);
+  if (P.acred_id) mostrarArchivo(F.querySelector("#f-acred"), D.yo, "acred", F.querySelector("#b-acred")).then(pintarCred);
   F.querySelector("#g-datos").onclick = async (e) => {
     const d = {}; F.querySelectorAll("[name]").forEach((x) => (d[x.name] = x.value.trim()));
-    e.target.disabled = true; try { await srv("guardarPerfil", d); aviso("Datos guardados ✓"); } catch (x) { aviso(x.message || String(x), true); } e.target.disabled = false;
+    e.target.disabled = true; try { await srv("guardarPerfil", d); Object.assign(P, d); pintarCred(); caduca("perfil"); aviso("Datos guardados ✓"); } catch (x) { aviso(x.message || String(x), true); } e.target.disabled = false;
   };
   const subir = (inp, tipo, caja) => (inp.onchange = async () => {
     const f = inp.files[0]; if (!f) return; caja.textContent = "Subiendo…";
@@ -1761,12 +1788,38 @@ VISTAS.perfil = async (m) => {
       await srv("subirArchivoPerfil", tipo, b64, mime); aviso("Subido ✓");
       if (mime === "application/pdf") { caja.textContent = "PDF cargado ✓"; caja.style.backgroundImage = ""; } else { caja.style.backgroundImage = `url(data:image/jpeg;base64,${b64})`; caja.textContent = ""; }
       caja.classList.add("ok");
-      if (tipo === "acred") archivoBotones(F.querySelector("#b-acred"), { mime, datos: b64 }, "acreditacion-" + D.yo.split("@")[0]);
+      if (tipo === "acred") { archivoBotones(F.querySelector("#b-acred"), { mime, datos: b64 }, "acreditacion-" + D.yo.split("@")[0]); P.acred_id = "nuevo"; }
+      pintarCred(); caduca("perfil");
     } catch (x) { caja.textContent = "No se pudo subir"; aviso(x.message || String(x), true); }
     inp.value = "";
   });
   subir(F.querySelector("#in-foto"), "foto", F.querySelector("#f-foto"));
   subir(F.querySelector("#in-acred"), "acred", F.querySelector("#f-acred"));
+  // documentos: varios, cada uno con su TIPO (cédula, licencias, etc.)
+  const Dc = m.querySelector("#docs");
+  const pintarDocs = (docs) => {
+    Dc.innerHTML = `<h2><i style="background:var(--verde)"></i>Mis documentos</h2><div class="docs-l"></div>
+      <div class="grupo"><b>Agregar</b><div class="dos"><label>Tipo<select id="d-tipo">${TIPOS_DOC.map((t) => `<option>${t}</option>`).join("")}</select></label><label id="d-otro-l" style="display:none">¿Cuál?<input type="text" id="d-otro" placeholder="Ej.: permiso de menor"></label></div>
+      <label>Descripción (opcional)<input type="text" id="d-nom" placeholder="Ej.: frente y dorso, vence 2028"></label>
+      <span class="btn sec chico subir">Elegir foto o PDF y subir<input type="file" accept="image/*,application/pdf" id="d-in"></span></div><small style="color:var(--gris);font-weight:600">Solo los ven vos y Trece A Cero.</small>`;
+    const L = Dc.querySelector(".docs-l");
+    L.innerHTML = docs.length ? "" : `<span style="color:var(--gris);font-weight:600">Todavía no subiste documentos.</span>`;
+    docs.forEach((d) => { const it = h(`<div class="doc-it"><span class="doc-tipo">${esc(d.tipo)}</span><span class="doc-nom">${esc(d.nombre || (d.mime === "application/pdf" ? "PDF" : "Foto"))}<small>${esc(d.subido || "")}</small></span><span class="doc-b"></span><button class="btn sec chico" data-x>Quitar</button></div>`);
+      const bot = h(`<button class="btn sec chico">Abrir</button>`); it.querySelector(".doc-b").appendChild(bot);
+      bot.onclick = async () => { bot.disabled = true; try { archivoBotones(it.querySelector(".doc-b"), await srv("verDocumento", d.id), sinT(d.tipo).replace(/\s+/g, "-") + "-" + D.yo.split("@")[0]); } catch (x) { aviso(x.message || String(x), true); bot.disabled = false; } };
+      const q = it.querySelector("[data-x]"); q.onclick = async () => { if (q.dataset.ok !== "1") { q.dataset.ok = "1"; q.textContent = "¿Seguro? Tocá de nuevo"; setTimeout(() => { q.dataset.ok = ""; q.textContent = "Quitar"; }, 4000); return; }
+        q.disabled = true; try { pintarDocs(await srv("borrarDocumento", d.id)); caduca("perfil"); aviso("Documento quitado (quedó en la papelera de Drive)"); } catch (x) { aviso(x.message || String(x), true); q.disabled = false; } };
+      L.appendChild(it); });
+    const sel = Dc.querySelector("#d-tipo"); sel.onchange = () => (Dc.querySelector("#d-otro-l").style.display = sel.value === "Otro" ? "" : "none");
+    const inp = Dc.querySelector("#d-in");
+    inp.onchange = async () => { const f = inp.files[0]; if (!f) return; const tipo = sel.value === "Otro" ? Dc.querySelector("#d-otro").value.trim() || "Otro" : sel.value;
+      aviso("Subiendo " + tipo + "…");
+      try { let b64, mime = "image/jpeg";
+        if (f.type === "application/pdf") { if (f.size > 8e6) throw new Error("El PDF es muy pesado (máximo 8 MB)."); b64 = await aBase64(f); mime = "application/pdf"; } else b64 = await leerImagen(f, 1800, null);
+        pintarDocs(await srv("subirDocumento", tipo, Dc.querySelector("#d-nom").value.trim(), b64, mime)); caduca("perfil"); aviso(tipo + " subido ✓"); }
+      catch (x) { aviso(x.message || String(x), true); } inp.value = ""; };
+  };
+  pintarDocs(R.documentos || []);
   m.querySelector("#roles").innerHTML = `<h2><i style="background:var(--amarillo)"></i>Mis roles</h2><div class="chips">${roles.length ? roles.map((r) => `<span class="rol-chip on">${esc(r)}</span>`).join("") : `<span style="color:var(--gris);font-weight:600">Todavía no tenés roles asignados.</span>`}</div><small style="color:var(--gris);font-weight:600">Los roles los asigna Trece A Cero.</small>`;
   const A = m.querySelector("#aus");
   const pintarAus = (lista) => {
@@ -2182,7 +2235,7 @@ function convGenerar(cont, m) {
     <label>Competencia<input type="text" name="competencia" list="dl-comp" placeholder="Campeonato Uruguayo"></label>
     <label>Locación<select name="loc-sel"><option value="">Elegí…</option>${LOCACIONES.map((l) => `<option>${esc(l)}</option>`).join("")}<option value="otra">Otra (escribir)</option></select></label>
     <input type="text" name="loc-otra" placeholder="¿Dónde?" hidden>
-    <div class="dos"><label>Horario previa<input type="time" name="previa"></label><label>Horario partido<input type="time" name="hora"></label></div>
+    <div class="dos"><label>Horario partido<input type="time" name="hora"></label><label>Horario previa<input type="time" name="previa"><span class="ayuda">Sola: 1 h 30 antes del partido. Se puede cambiar.</span></label></div>
     <div class="grupo"><b>Roles</b><div class="chips" id="g-roles">${ROLES_EQ.concat(["Otro"]).map((r) => `<button class="rol-chip" data-r="${esc(r)}">${esc(r)}</button>`).join("")}</div>
       <input type="text" id="g-otro" placeholder="Explicá el rol «Otro» (ej.: chofer, fotógrafo)" hidden><div id="g-bloques" style="display:flex;flex-direction:column;gap:10px"></div></div>
     <label>Notas para el mail (opcional)<textarea name="notas" rows="2" placeholder="Ej.: llevar acreditación, punto de encuentro"></textarea></label>
@@ -2195,7 +2248,10 @@ function convGenerar(cont, m) {
     if (hay) { ls.value = hay; N.locacion = hay; lo.hidden = true; } else { ls.value = "otra"; lo.hidden = false; lo.value = v; } };
   ls.onchange = () => { lo.hidden = ls.value !== "otra"; N.locacion = ls.value === "otra" ? lo.value : ls.value; if (!lo.hidden) lo.focus(); };
   lo.oninput = () => (N.locacion = lo.value);
-  ["fecha", "local", "visitante", "competencia", "previa", "hora", "notas"].forEach((k) => campo(k).addEventListener("input", () => { N[k] = campo(k).value; if (k === "fecha") pintarBloques(); }));
+  let previaAMano = false;
+  const previaDe = (hh) => { const q = String(hh || "").match(/^(\d{1,2}):(\d{2})/); if (!q) return ""; const t = (+q[1] * 60 + +q[2] - 90 + 1440) % 1440; return String(Math.floor(t / 60)).padStart(2, "0") + ":" + String(t % 60).padStart(2, "0"); };
+  const ponerPrevia = () => { if (previaAMano) return; N.previa = previaDe(N.hora); campo("previa").value = N.previa; };
+  ["fecha", "local", "visitante", "competencia", "previa", "hora", "notas"].forEach((k) => campo(k).addEventListener("input", () => { N[k] = campo(k).value; if (k === "previa") previaAMano = !!N.previa; if (k === "hora") ponerPrevia(); if (k === "fecha") pintarBloques(); }));
   const bloques = F.querySelector("#g-bloques"), otro = F.querySelector("#g-otro");
   otro.oninput = () => { otroTxt = otro.value.trim(); resumen(); };
   F.querySelectorAll("#g-roles .rol-chip").forEach((b) => (b.onclick = () => {
@@ -2203,24 +2259,32 @@ function convGenerar(cont, m) {
     b.classList.toggle("on", !!elegidos[r]); if (r === "Otro") { otro.hidden = !elegidos[r]; if (!otro.hidden) otro.focus(); } pintarBloques();
   }));
   const yaEseDia = (email) => N.fecha && CV.convocatorias.some((c) => c.fecha === N.fecha && c.estado !== "cancelada" && c.gente.some((g) => g.email === email && g.respuesta !== "rechaza"));
+  // en cada rol aparecen solo quienes lo tienen asignado; «Otro» abre al resto para una emergencia. Quien cargó ausencia ese día no se puede elegir.
+  const abiertos = new Set(), emergencia = new Set();   // emergencia: "rol|email" elegidos sin tener el rol
   function pintarBloques() {
     bloques.innerHTML = "";
     ROLES_EQ.concat(["Otro"]).filter((r) => elegidos[r]).forEach((r) => {
-      const gente = (CV.convocables || []).slice().sort((a, b) => (b.roles.includes(r) - a.roles.includes(r)) || a.nombre.localeCompare(b.nombre));
-      const B = h(`<div class="rolbloque"><b>${esc(r === "Otro" ? "Otro" + (otroTxt ? ": " + otroTxt : "") : r)}</b><div class="chips"></div></div>`);
-      if (!gente.length) B.querySelector(".chips").innerHTML = `<span style="color:var(--gris);font-weight:600">No hay cuentas con acceso para convocar.</span>`;
-      gente.forEach((p) => {
+      const todos = (CV.convocables || []).slice().sort((a, b) => a.nombre.localeCompare(b.nombre)), libre = r === "Otro";
+      const con = libre ? todos : todos.filter((p) => p.roles.includes(r)), sin = libre ? [] : todos.filter((p) => !p.roles.includes(r));
+      const B = h(`<div class="rolbloque"><b>${esc(libre ? "Otro" + (otroTxt ? ": " + otroTxt : "") : r)}</b><div class="chips"></div></div>`), Ch = B.querySelector(".chips");
+      const chip = (p, extra) => {
         const au = N.fecha && ausenteEl(p, N.fecha), ya = yaEseDia(p.email);
-        const c = h(`<button class="pchip${elegidos[r].has(p.email) ? " on" : ""}${p.roles.includes(r) ? " tiene" : ""}${au ? " ausente" : ""}" title="${p.roles.length ? "Roles: " + esc(p.roles.join(", ")) : "Sin roles asignados"}">${esc(p.nombre)}${au ? ` <small>· ${esc(MOTIVOS[au.motivo] || "ausente")}</small>` : ""}${ya ? " <small>· ya convocado ese día</small>" : ""}</button>`);
-        c.onclick = () => { elegidos[r].has(p.email) ? elegidos[r].delete(p.email) : elegidos[r].add(p.email); c.classList.toggle("on"); resumen(); };
-        B.querySelector(".chips").appendChild(c);
-      });
+        if (au && elegidos[r].has(p.email)) { elegidos[r].delete(p.email); emergencia.delete(r + "|" + p.email); }   // si cambió el día y ahora está ausente, sale
+        const c = h(`<button class="pchip${elegidos[r].has(p.email) ? " on" : ""}${!libre && !extra ? " tiene" : ""}${extra ? " extra" : ""}${au ? " ausente" : ""}"${au ? " disabled" : ""} title="${au ? "Tiene ausencia cargada ese día" : p.roles.length ? "Roles: " + esc(p.roles.join(", ")) : "Sin roles asignados"}">${esc(p.nombre)}${au ? ` <small>· ${esc(MOTIVOS[au.motivo] || "ausente")}</small>` : ""}${ya ? " <small>· ya convocado ese día</small>" : ""}${extra ? " <small>· emergencia</small>" : ""}</button>`);
+        if (!au) c.onclick = () => { const k = r + "|" + p.email; if (elegidos[r].has(p.email)) { elegidos[r].delete(p.email); emergencia.delete(k); } else { elegidos[r].add(p.email); if (extra) emergencia.add(k); } c.classList.toggle("on"); resumen(); };
+        Ch.appendChild(c); };
+      con.forEach((p) => chip(p, false));
+      if (!con.length) Ch.appendChild(h(`<span style="color:var(--gris);font-weight:600">Nadie tiene el rol ${esc(r)} asignado.</span>`));
+      if (sin.length) {
+        if (abiertos.has(r) || sin.some((p) => elegidos[r].has(p.email))) sin.forEach((p) => chip(p, true));
+        else { const o = h(`<button class="pchip otro-em">+ Otro (emergencia)</button>`); o.onclick = () => { abiertos.add(r); pintarBloques(); }; Ch.appendChild(o); }
+      }
       bloques.appendChild(B);
     });
-    if (Object.keys(elegidos).length) bloques.appendChild(h(`<small style="color:var(--gris);font-weight:600">Con borde amarillo: tienen ese rol asignado. En rojo: cargaron ausencia ese día.</small>`));
+    if (Object.keys(elegidos).length) bloques.appendChild(h(`<small style="color:var(--gris);font-weight:600">En cada rol aparecen solo quienes lo tienen asignado. «+ Otro (emergencia)» muestra al resto. En rojo y bloqueados: cargaron ausencia ese día.</small>`));
     resumen();
   }
-  const lista = () => { const out = []; Object.entries(elegidos).forEach(([r, s]) => s.forEach((email) => out.push({ email, rol: r === "Otro" ? "Otro" + (otroTxt ? ": " + otroTxt : "") : r }))); return out; };
+  const lista = () => { const out = []; Object.entries(elegidos).forEach(([r, s]) => s.forEach((email) => out.push({ email, rol: r === "Otro" ? "Otro" + (otroTxt ? ": " + otroTxt : "") : r, emergencia: emergencia.has(r + "|" + email) }))); return out; };
   function resumen() {
     const L = lista(), per = new Set(L.map((x) => x.email)).size;
     const aus = N.fecha ? L.filter((x) => { const p = CV.convocables.find((q) => q.email === x.email); return p && ausenteEl(p, N.fecha); }).length : 0;
@@ -2243,7 +2307,7 @@ function convGenerar(cont, m) {
       const b = h(`<button><b>${esc(corta(p.fecha))}</b>${esc(p.local)} vs ${esc(p.visitante)}<small>${esc(p.hora)} · ${esc(p.competencia)}<br>${esc(p.locacion)}</small></button>`);
       b.onclick = () => { S.querySelectorAll("button").forEach((x) => x.classList.toggle("on", x === b));
         Object.assign(N, { fecha: p.fecha, local: p.local, visitante: p.visitante, competencia: p.competencia, hora: p.hora });
-        ["fecha", "local", "visitante", "competencia", "hora"].forEach((k) => (campo(k).value = N[k])); ponerLoc(p.locacion); pintarBloques(); F.scrollIntoView({ behavior: "smooth" }); };
+        ["fecha", "local", "visitante", "competencia", "hora"].forEach((k) => (campo(k).value = N[k])); ponerPrevia(); ponerLoc(p.locacion); pintarBloques(); F.scrollIntoView({ behavior: "smooth" }); };
       S.appendChild(b);
     });
   });
