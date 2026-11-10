@@ -239,6 +239,12 @@
   .acc .u-pide, .acc .u-clave { margin-top:6px; display:flex; flex-wrap:wrap; gap:6px; align-items:center; font-size:13px; } .acc .u-clave code { font:800 15px monospace; letter-spacing:1px; background:var(--fondo); padding:2px 6px; user-select:all; }
   .esc-m { display:flex; align-items:center; gap:10px; flex-wrap:wrap; min-width:0; } .esc-m .subir { white-space:normal; text-align:center; max-width:100%; } .esc-v { width:56px; height:56px; flex:none; display:flex; align-items:center; justify-content:center; background:var(--fondo); font:700 10px var(--f); color:var(--gris); text-align:center; }
   .esc-v img { max-width:100%; max-height:100%; object-fit:contain; }
+  .pv-tabs { display:flex; flex-wrap:wrap; gap:6px; align-items:center; padding-bottom:12px; border-bottom:2px solid var(--linea); margin-bottom:4px; position:sticky; top:0; background:var(--blanco); z-index:3; }
+  .pv-tabs .chip { font-size:14px; } .pv-estado { margin-left:auto; font:800 12px var(--f); color:var(--gris); } .pv-estado.ok { color:var(--verde); }
+  .sofa { display:flex; flex-direction:column; gap:8px; } .sofa-w { display:flex; gap:14px; flex-wrap:wrap; align-items:flex-start; } .sofa iframe { border:0; width:100%; max-width:540px; height:460px; background:var(--fondo); }
+  .esc-bus { display:flex; flex-direction:column; gap:8px; padding:10px; background:var(--fondo); } .esc-res { display:grid; grid-template-columns:repeat(auto-fill,minmax(92px,1fr)); gap:8px; max-height:260px; overflow:auto; }
+  .esc-res button { display:flex; flex-direction:column; align-items:center; gap:4px; padding:6px; background:var(--blanco); border:2px solid transparent; font:700 11px var(--f); color:var(--azul); cursor:pointer; text-align:center; }
+  .esc-res button:hover { border-color:var(--celeste); } .esc-res img { width:48px; height:48px; object-fit:contain; } .esc-v[tabindex] { cursor:pointer; outline:2px dashed var(--linea); } .esc-v:focus { outline-color:var(--celeste); }
   .cal { display:grid; grid-template-columns:repeat(7, minmax(0,1fr)); gap:4px; }
   .cal .dn { font:800 11px var(--f); letter-spacing:.1em; color:var(--gris); text-transform:uppercase; padding:4px; }
   .cal .d { background:#fff; outline:1px solid var(--linea); min-height:96px; padding:6px; display:flex; flex-direction:column; gap:4px; min-width:0; }
@@ -1110,7 +1116,10 @@ const EQUIPOS = ["Albion", "Boston River", "Central Español", "Cerro", "Cerro L
 VISTAS.partido = (m) => {
   const v = valoresDe(D.partido);
   const st = Object.assign({}, v), cambios = {};
-  const set = (k, x) => { st[k] = x; cambios[k] = x; refrescar(); };
+  // cada campo se guarda solo, un segundo después de dejar de escribir (no hace falta ningún botón)
+  const autoGuardar = debounce(() => { const c = Object.assign({}, cambiosPend, cambios); Object.keys(cambios).forEach((k) => delete cambios[k]); cambiosPend = {}; if (!Object.keys(c).length) return;
+    D.partido = conClaves(D.partido, c); enCola("guardarClaves", ["partido_vivo", c]); sellar(); const e = document.getElementById("pv-estado"); if (e) { e.textContent = "✓ Guardado " + new Date().toTimeString().slice(0, 5); e.classList.add("ok"); } }, 1000);
+  const set = (k, x) => { st[k] = x; cambios[k] = x; refrescar(); const e = document.getElementById("pv-estado"); if (e) { e.textContent = "Guardando…"; e.classList.remove("ok"); } autoGuardar(); };
   if (!m.querySelector("#vp")) m.innerHTML = titulo("Partido en vivo") + `<div class="cuerpo"><div class="card form" id="fp"></div><div class="card vista" id="vp"></div></div><div class="card form" id="fal"></div>`;
   const F = m.querySelector("#fp"), V = m.querySelector("#vp");
   let FA = m.querySelector("#fal"); if (!FA) { FA = h(`<div class="card form" id="fal"></div>`); m.appendChild(FA); }   // alineaciones a todo el ancho: los nombres se leen completos
@@ -1214,9 +1223,33 @@ VISTAS.partido = (m) => {
     // manual: cualquier liga o competencia, y si hace falta, el escudo de cada equipo (queda guardado en «Escudos» y se ve en todas las pantallas)
     const GE = h(`<div class="grupo"><b>Liga y escudos</b>
       <label>Liga o competencia<input type="text" id="m-liga" list="m-ligas" value="${esc(st.torneo || "")}" placeholder="Ej.: Copa AUF Uruguay, Segunda División, Liga Profesional Argentina"><datalist id="m-ligas">${["Copa AUF Uruguay", "Liga AUF Uruguaya", "Segunda División Profesional", "Primera División Amateur", "CONMEBOL Libertadores", "CONMEBOL Sudamericana", "Amistoso internacional", "Eliminatorias Sudamericanas", "Liga Profesional Argentina", "Brasileirão", "LaLiga", "Premier League", "Serie A", "Champions League"].map((x) => `<option value="${x}">`).join("")}</datalist></label>
-      <div class="dos">${[["L", st.local || "Local"], ["V", st.visitante || "Visitante"]].map(([k, n]) => `<div class="esc-m"><span class="esc-v" id="esc-${k}">${escudoDe(n) ? `<img src="${esc(escudoDe(n))}" alt="">` : "Sin escudo"}</span><span class="btn sec chico subir">Escudo de ${esc(n)}<input type="file" accept="image/*" data-e="${k}"></span></div>`).join("")}</div>
-      <span class="ayuda">Si el escudo no aparece solo, subilo acá (mejor un PNG con fondo transparente). Queda guardado en «Escudos» para la próxima.</span></div>`);
+      <div class="dos">${[["L", st.local || "Local"], ["V", st.visitante || "Visitante"]].map(([k, n]) => `<div class="esc-m"><span class="esc-v" id="esc-${k}" tabindex="0" data-p="${k}" title="Tocá acá y pegá una imagen o un link (⌘V / Ctrl+V)">${escudoDe(n) ? `<img src="${esc(escudoDe(n))}" alt="">` : "Sin escudo · pegá acá"}</span><button class="btn ce chico" data-b="${k}">🔍 Buscar</button><span class="btn sec chico subir">Subir<input type="file" accept="image/*" data-e="${k}"></span></div>`).join("")}</div>
+      <div id="esc-bus"></div>
+      <span class="ayuda">El escudo sale solo si el equipo está en los escudos del ticker. Si no: «Buscar» (por nombre y liga, en los escudos del ticker y en ESPN), pegá una imagen o un link en el cuadrito, o subí un archivo (mejor PNG con fondo transparente). Queda guardado en «Escudos».</span></div>`);
     GE.querySelector("#m-liga").oninput = (e) => set("torneo", e.target.value.trim());
+    const nomDe = (k) => ((k === "L" ? st.local : st.visitante) || "").trim();
+    const asignar = async (k, ruta) => { const n = nomDe(k); if (!n) { aviso("Poné primero el nombre del " + (k === "L" ? "local" : "visitante"), true); return; }
+      GE.querySelector("#esc-" + k).innerHTML = `<img src="${esc(img(ruta))}" alt="">`; aviso("Guardando el escudo…");
+      try { await srv("asignarEscudo", n, st.torneo || "", ruta); aviso("Escudo de " + n + " guardado ✓"); } catch (x) { aviso(x.message || String(x), true); } };
+    const subirB64 = async (k, b64) => { const n = nomDe(k); if (!n) { aviso("Poné primero el nombre del " + (k === "L" ? "local" : "visitante"), true); return; }
+      GE.querySelector("#esc-" + k).innerHTML = `<img src="data:image/png;base64,${b64}" alt="">`; aviso("Subiendo el escudo…");
+      try { await srv("subirEscudo", n, st.torneo || "", b64); aviso("Escudo de " + n + " guardado ✓"); } catch (x) { aviso(x.message || String(x), true); } };
+    // pegar: una imagen copiada o un link a una imagen
+    GE.querySelectorAll("[data-p]").forEach((c) => c.addEventListener("paste", async (e) => { e.preventDefault(); const k = c.dataset.p, it = [...(e.clipboardData.items || [])].find((x) => /^image\//.test(x.type));
+      if (it) { try { await subirB64(k, await escudoPNG(it.getAsFile())); } catch (x) { aviso(x.message || String(x), true); } return; }
+      const t = (e.clipboardData.getData("text") || "").trim(); if (/^https?:\/\/\S+$/.test(t)) asignar(k, t); else aviso("Pegá una imagen o el link de una imagen", true); }));
+    // buscar: en los escudos del ticker (por nombre) y en ESPN (por liga)
+    GE.querySelectorAll("[data-b]").forEach((b) => (b.onclick = async () => {
+      const k = b.dataset.b, B = GE.querySelector("#esc-bus"), LIGAS = [["", "Escudos del ticker"], ["uru.1", "Uruguay"], ["uru.2", "Uruguay 2.ª"], ["arg.1", "Argentina"], ["bra.1", "Brasil"], ["chi.1", "Chile"], ["par.1", "Paraguay"], ["col.1", "Colombia"], ["esp.1", "España"], ["eng.1", "Inglaterra"], ["ita.1", "Italia"], ["ger.1", "Alemania"], ["fra.1", "Francia"], ["por.1", "Portugal"], ["mex.1", "México"], ["usa.1", "MLS"], ["conmebol.libertadores", "Libertadores"], ["conmebol.sudamericana", "Sudamericana"], ["uefa.champions", "Champions"]];
+      B.innerHTML = `<div class="esc-bus"><b>Escudo para ${esc(nomDe(k) || (k === "L" ? "el local" : "el visitante"))}</b><div class="dos"><label>Nombre<input type="text" id="eb-q" value="${esc(nomDe(k))}"></label><label>Dónde buscar<select id="eb-l">${LIGAS.map(([v, t]) => `<option value="${v}">${t}</option>`).join("")}</select></label></div><div class="esc-res" id="eb-r"></div><button class="enlace" id="eb-x">Cerrar</button></div>`;
+      const q = B.querySelector("#eb-q"), l = B.querySelector("#eb-l"), Rr = B.querySelector("#eb-r"); B.querySelector("#eb-x").onclick = () => (B.innerHTML = "");
+      const pintar = async () => { const txt = sinT(q.value).trim(), w = txt.split(/\s+/).filter((x) => x.length > 2); Rr.innerHTML = `<small>Buscando…</small>`; let L = [];
+        if (!l.value) { const E = await escudosTicker(); const vistos = new Set(); Object.entries(E.nombres || {}).forEach(([slug, ruta]) => { if (vistos.has(ruta)) return; const sl = slug.replace(/-/g, " "); if (!w.length || w.some((x) => sl.includes(x))) { vistos.add(ruta); L.push({ nombre: ruta.replace(/^escudos\/|\.png$/g, "").replace(/-/g, " "), ruta }); } }); }
+        else L = (await equiposDeLiga(l.value)).filter((t) => !w.length || w.some((x) => sinT(t.displayName + " " + (t.shortDisplayName || "")).includes(x))).map((t) => ({ nombre: t.displayName, ruta: ((t.logos || [])[0] || {}).href || "" })).filter((x) => x.ruta);
+        Rr.innerHTML = L.length ? "" : `<small>No encontré escudos${w.length ? " con ese nombre" : ""}. Probá otra liga o borrá parte del nombre.</small>`;
+        L.slice(0, 60).forEach((x) => { const c = h(`<button title="${esc(x.nombre)}"><img src="${esc(img(x.ruta))}" alt="">${esc(x.nombre)}</button>`); c.onclick = () => { asignar(k, x.ruta); B.innerHTML = ""; }; Rr.appendChild(c); }); };
+      q.oninput = debounce(pintar, 400); l.onchange = pintar; pintar();
+    }));
     GE.querySelectorAll("[data-e]").forEach((inp) => (inp.onchange = async () => {
       const f = inp.files[0], k = inp.dataset.e, n = (k === "L" ? st.local : st.visitante) || ""; inp.value = ""; if (!f) return;
       if (!n.trim()) { aviso("Poné primero el nombre del " + (k === "L" ? "local" : "visitante"), true); return; }
@@ -1497,12 +1530,35 @@ VISTAS.partido = (m) => {
     b.disabled = false; b.textContent = t0;
   };
   GA.querySelector("#a-ia").onclick = armar; GA.querySelector("#a-is").onclick = armar;
+  // SofaScore: se pega el código del recuadro (o el link del partido). SofaScore no deja que otro sitio lea sus datos,
+  // así que el panel muestra su recuadro oficial y abre el partido: de ahí se copia la alineación (o se saca una captura) y se pega en Titulares / Suplentes
+  const idSofa = (t) => { t = String(t || ""); const m = t.match(/[?&]id=(\d{5,})/) || t.match(/#id:(\d{5,})/) || t.match(/\/event\/(\d{5,})/) || t.match(/^\s*(\d{5,})\s*$/); return m ? m[1] : ""; };
+  const GS2 = h(`<div class="grupo sofa"><b>SofaScore</b>
+    <label>Pegá el código del recuadro de SofaScore o el link del partido<textarea rows="2" id="sf-in" placeholder='<iframe id="sofa-live-result-embed-…" src="https://widgets.sofascore.com/…?id=12345678…'>${esc(st.sofascore ? "https://www.sofascore.com/event/" + st.sofascore : "")}</textarea></label>
+    <div id="sf-ok"></div></div>`);
+  const pintarSofa = () => { const id = st.sofascore || "", O = GS2.querySelector("#sf-ok");
+    O.innerHTML = id ? `<div class="botonera"><a class="btn ce chico" target="_blank" rel="noopener" href="https://www.sofascore.com/event/${esc(id)}">↗ Abrir el partido en SofaScore</a><button class="btn sec chico" id="sf-x">Quitar</button></div>
+      <span class="ayuda">1) En SofaScore, abrí «Alineaciones». 2) Seleccioná y copiá los titulares (o sacá una captura) y pegalos en «Titulares» de cada equipo; lo mismo con los suplentes. 3) Tocá «Armar titulares» o «Armar suplentes». El resultado en vivo de SofaScore queda acá abajo para comparar.</span>
+      <div class="sofa-w"><iframe src="https://widgets.sofascore.com/es/embed/liveResult?id=${esc(id)}&widgetTheme=light" loading="lazy" scrolling="no" title="Resultado en vivo (SofaScore)"></iframe></div>` : `<span class="ayuda">Partido número: —</span>`;
+    const x = O.querySelector("#sf-x"); if (x) x.onclick = () => { set("sofascore", ""); GS2.querySelector("#sf-in").value = ""; pintarSofa(); }; };
+  GS2.querySelector("#sf-in").oninput = debounce((e) => { const id = idSofa(e.target.value); if (!e.target.value.trim()) return; if (!id) { aviso("No encontré el número del partido en lo que pegaste", true); return; } if (id !== st.sofascore) { set("sofascore", id); pintarSofa(); aviso("Partido de SofaScore n.º " + id + " guardado ✓"); } }, 500);
+  pintarSofa();
+  FA.appendChild(GS2);
   FA.appendChild(GA);
-  const pie = h(`<div class="pie"><button class="btn am">Guardar y mandar al aire</button></div>`);
-  pie.querySelector("button").onclick = async (e) => { const c = Object.assign({}, cambiosPend, cambios); if (!Object.keys(c).length) { aviso("No hay cambios"); return; } cambiosPend = {}; D.partido = conClaves(D.partido, c); enCola("guardarClaves", ["partido_vivo", c]); sellar(); VISTAS.partido(m); };
-  F.appendChild(pie);
+  // la pestaña en secciones: Partido · Tarjetas y cambios · Alineaciones · Pantalla
+  const SECC = [["partido", "⚽ Partido"], ["sucesos", "🟨 Tarjetas y cambios"], ["alin", "👥 Alineaciones"], ["pantalla", "🖥 Pantalla"]];
+  const secDe = (g) => { const t = sinT((g.querySelector(":scope > b") || {}).textContent || ""); return /pantalla/.test(t) ? "pantalla" : /tarjeta|sustituc/.test(t) ? "sucesos" : "partido"; };
+  F.querySelectorAll(":scope > .grupo").forEach((g) => (g.dataset.sec = secDe(g)));
+  const barra = h(`<div class="pv-tabs">${SECC.map(([k, t]) => `<button class="chip" data-s="${k}">${t}</button>`).join("")}<span id="pv-estado" class="pv-estado ok">Se guarda solo</span></div>`);
+  F.insertBefore(barra, F.querySelector("h2").nextSibling);
+  const mostrarSec = (k) => { subPartido = k; barra.querySelectorAll("[data-s]").forEach((b) => b.classList.toggle("on", b.dataset.s === k));
+    F.querySelectorAll(":scope > .grupo").forEach((g) => (g.style.display = g.dataset.sec === k ? "" : "none")); FA.style.display = k === "alin" ? "" : "none";
+    F.classList.toggle("solo-tabs", k === "alin"); };
+  barra.querySelectorAll("[data-s]").forEach((b) => (b.onclick = () => mostrarSec(b.dataset.s)));
+  mostrarSec(subPartido);
   refrescar();
 };
+let subPartido = "partido";
 let cambiosPend = {}, ultimoPartido = null;   // ultimoPartido: valores de antes del último botón (para Deshacer)
 // como conValores, pero suma las claves que todavía no tienen fila
 function conClaves(t, c) {
@@ -1739,9 +1795,18 @@ const partidoTxt = (c) => c.local + (c.visitante ? " vs " + c.visitante : "");
 // achicar/recortar imágenes antes de subirlas
 // escudo ya cargado en la pestaña «escudos» para ese equipo (por nombre u otros nombres)
 function escudoDe(n) {
-  const t = D.escudos || [], c = cab(t), ie = c.indexOf("equipo"), ix = c.indexOf("escudo"), io = c.indexOf("otros_nombres"), k = sinT(n).trim(); if (!k || ie < 0 || ix < 0) return "";
-  const f = t.slice(1).find((r) => [r[ie]].concat(String(io >= 0 ? r[io] || "" : "").split(/[,;]/)).some((x) => sinT(x).trim() === k)); return f && f[ix] ? img(String(f[ix]).trim()) : "";
+  const t = D.escudos || [], c = cab(t), ie = c.indexOf("equipo"), ix = c.indexOf("escudo"), io = c.indexOf("otros_nombres"), k = sinT(n).trim(); if (!k) return "";
+  const f = ie >= 0 && ix >= 0 && t.slice(1).find((r) => [r[ie]].concat(String(io >= 0 ? r[io] || "" : "").split(/[,;]/)).some((x) => sinT(x).trim() === k));
+  if (f && f[ix]) return img(String(f[ix]).trim());
+  const E = window.ESCUDOS, slug = k.replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""); return E && E.nombres && E.nombres[slug] ? img(E.nombres[slug]) : "";   // los escudos del ticker
 }
+// índice de escudos del ticker (escudos.js, el mismo que usan las pantallas)
+let promEscudos = null;
+function escudosTicker() {
+  if (window.ESCUDOS) return Promise.resolve(window.ESCUDOS);
+  return (promEscudos = promEscudos || new Promise((ok) => { const sc = document.createElement("script"); sc.src = WEB + "escudos.js?v=" + Math.floor(Date.now() / 36e5); sc.onload = () => ok(window.ESCUDOS || {}); sc.onerror = () => ok({}); document.head.appendChild(sc); }));
+}
+escudosTicker();
 // escudo: se achica a 200 x 200 como máximo, sin recortar y con el fondo transparente (PNG)
 function escudoPNG(file) {
   return new Promise((ok, mal) => { const im = new Image(), u = URL.createObjectURL(file);
