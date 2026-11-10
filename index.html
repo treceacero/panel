@@ -236,8 +236,9 @@
   .mes { display:flex; align-items:center; gap:10px; } .mes b { font:800 20px var(--slab); min-width:180px; text-align:center; }
   .grilla { display:grid; grid-template-columns:1fr 1fr; gap:8px; }   /* los dos equipos, uno al lado del otro */
   .grilla .g-eq { padding:8px 6px; } .grilla .g-j { gap:2px; } .grilla .g-j .g-n { width:34px; padding:6px 2px; } .grilla .g-j .g-nom { padding:6px 5px; font-size:13px; }
-  .grilla .g-b[title="Subir"], .grilla .g-b[title="Bajar"] { display:none; }   /* se ordena arrastrando ⠿ */
-  @media (max-width:760px) { .grilla { grid-template-columns:1fr; } .grilla .g-b[title="Subir"], .grilla .g-b[title="Bajar"] { display:inline-block; } }
+  .grilla .g-b { display:none; } .grilla .g-j:hover .g-b:not([title="Subir"]):not([title="Bajar"]), .grilla .g-j:focus-within .g-b:not([title="Subir"]):not([title="Bajar"]) { display:inline-block; }   /* el nombre usa todo el ancho; ⇣ y ✕ aparecen al pasar el mouse; se ordena arrastrando ⠿ */
+  .grilla .g-ok { min-width:14px; font-size:12px; }
+  @media (max-width:760px) { .grilla { grid-template-columns:1fr; } .grilla .g-b { display:inline-block; } }
   .g-eq { outline:1px solid var(--linea); padding:10px; display:flex; flex-direction:column; gap:5px; min-width:0; }
   .g-cab { display:flex; align-items:center; gap:8px; flex-wrap:wrap; } .g-cab b { font:900 16px var(--f); } .g-cab select { width:auto; padding:6px 8px; font-size:14px; }
   .g-cuenta { margin-left:auto; font:800 12px var(--f); color:var(--verde); } .g-cuenta.mal { color:var(--rojo); }
