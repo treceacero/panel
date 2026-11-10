@@ -1116,8 +1116,33 @@ VISTAS.partido = (m) => {
   const manual = /auf|manual/i.test(st.competencia || "");
   const G1 = h(`<div class="grupo"><b>Competencia</b><div class="chips">${[["", "Automático"], ["uruguay", "Uruguay"], ["libertadores", "Libertadores"], ["sudamericana", "Sudamericana"], ["seleccion", "Selección"], ["copa auf", "Copa AUF (a mano)"], ["simular champions", "Simulación (Champions)"]].map(([k, t]) => `<button class="chip${sinT(st.competencia || "") === k ? " on" : ""}" data-k="${k}">${t}</button>`).join("")}</div></div>`);
   const yaGuardar = (c) => { Object.assign(st, c); D.partido = conClaves(D.partido, c); enCola("guardarClaves", ["partido_vivo", c]); sellar(); VISTAS.partido(m); };
-  const GL = h(`<div class="grupo"><b>Parte derecha de la pantalla</b><div class="chips">${[["tablas", "Tablas"], ["noticias", "Noticias"], ["nada", "Nada"]].map(([k, t]) => `<button class="chip${(sinT(st.lado || "") || "tablas") === k ? " on" : ""}" data-l="${k}">${t}</button>`).join("")}</div><span class="ayuda">Se guarda al tocar. Tablas: las de ESPN (en la Copa AUF no hay). Noticias: las que están al aire, rotando.</span></div>`);
-  GL.querySelectorAll(".chip").forEach((b) => (b.onclick = () => yaGuardar({ lado: b.dataset.l })));
+  // pantalla del partido: módulo de abajo, vista de cada equipo, qué se ve y créditos
+  const chipsDe = (clave, ops, def) => `<div class="chips" data-clave="${clave}">${ops.map(([k, t]) => `<button class="chip${(sinT(st[clave] || "") || def) === k ? " on" : ""}" data-v="${k}">${t}</button>`).join("")}</div>`;
+  const VISTAS_EQ = [["auto", "Automática"], ["cancha", "Canchita"], ["lista", "Listado XI"], ["suplentes", "Suplentes"]];
+  const nL = esc(st.local || "Local"), nV = esc(st.visitante || "Visitante"), sino = (k) => sinT(st[k] || "si") !== "no";
+  const GL = h(`<div class="grupo"><b>Pantalla del partido</b>
+    <div class="a-titulo">Módulo de abajo</div>${chipsDe("lado", [["tablas", "Tablas"], ["noticias", "Noticias"], ["alternar", "Alternar las dos"], ["nada", "Nada"]], "tablas")}
+    <div class="a-titulo">${nL} (izquierda)</div>${chipsDe("vista_l", VISTAS_EQ, "auto")}
+    <div class="a-titulo">${nV} (derecha)</div>${chipsDe("vista_v", VISTAS_EQ, "auto")}
+    <div class="a-titulo">Qué se ve</div><div class="chips"><button class="chip${sino("ver_sucesos") ? " on" : ""}" data-t="ver_sucesos">${sino("ver_sucesos") ? "☑" : "☐"} Sucesos</button><button class="chip${sino("ver_creditos") ? " on" : ""}" data-t="ver_creditos">${sino("ver_creditos") ? "☑" : "☐"} Créditos en la barra</button></div>
+    <span class="ayuda">Se guarda al tocar. «Automática»: cada equipo rota canchita → listado → canchita → listado → suplentes. Fijá una vista si la alineación de un equipo todavía no está confirmada. Tablas: las de ESPN (en la Copa AUF no hay). Noticias: las que están al aire.</span>
+    <div class="a-titulo">Créditos de la transmisión</div>
+    <textarea rows="4" id="cr-tx" placeholder="Uno por línea. Ej.: Relato: Pablo Rak">${esc(String(st.creditos || "").split(/\s*;\s*/).join("\n"))}</textarea>
+    <div class="botonera"><button class="btn sec chico" id="cr-conv">⤓ Traer de la convocatoria</button><button class="btn ce chico" id="cr-ok">Guardar créditos</button></div>
+    <span class="ayuda">En la barra de abajo se alternan cada minuto: redes → créditos → redes → «Escuchá, y mirá, el programa de lunes a viernes a las 19 horas». Siempre se suma «Dirección: Ricardo “Profesor” Piñeyrúa».</span></div>`);
+  GL.querySelectorAll(".chips[data-clave] .chip").forEach((b) => (b.onclick = () => yaGuardar({ [b.parentNode.dataset.clave]: b.dataset.v })));
+  GL.querySelectorAll("[data-t]").forEach((b) => (b.onclick = () => yaGuardar({ [b.dataset.t]: sino(b.dataset.t) ? "no" : "si" })));
+  GL.querySelector("#cr-ok").onclick = () => yaGuardar({ creditos: GL.querySelector("#cr-tx").value.split("\n").map((x) => x.trim()).filter(Boolean).join("; ") });
+  GL.querySelector("#cr-conv").onclick = async (ev) => {   // la convocatoria del partido (la de hoy o la más cercana con esos equipos): rol y nombre de los que no rechazaron
+    const b = ev.currentTarget; b.disabled = true;
+    try { const cv = LEIDO.leerConvocatorias || await srv("leerConvocatorias"), L = (cv && cv.convocatorias) || [], hoy = new Date().toISOString().slice(0, 10);
+      const eqs = [st.local, st.visitante, st.equipo].map((x) => sinT(x || "")).filter(Boolean), dist = (c) => Math.abs(new Date(c.fecha) - new Date(hoy));
+      const c = L.filter((c) => c.estado !== "cancelada").sort((a, z) => (eqs.some((e) => sinT(z.local + " " + z.visitante).includes(e)) - eqs.some((e) => sinT(a.local + " " + a.visitante).includes(e))) || dist(a) - dist(z))[0];
+      if (!c) { aviso("No encontré convocatorias", true); return; }
+      const lineas = (c.gente || []).filter((g) => g.respuesta !== "rechaza").map((g) => `${String(g.rol || "").replace(/^Otro:\s*/i, "")}: ${g.nombre}`);
+      GL.querySelector("#cr-tx").value = lineas.join("\n"); aviso(`Traje ${lineas.length} de la convocatoria ${c.local} – ${c.visitante} (${c.fecha}). Revisalos y tocá «Guardar créditos».`);
+    } catch (e) { aviso(e.message || String(e), true); } finally { b.disabled = false; }
+  };
   G1.querySelectorAll(".chip").forEach((b) => (b.onclick = () => { set("competencia", b.dataset.k); D.partido = conValores(D.partido, st); VISTAS.partido(m); Object.assign(cambiosPend, cambios); }));
   F.appendChild(G1); F.appendChild(GL);
   if (!manual) {
