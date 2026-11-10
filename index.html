@@ -234,6 +234,7 @@
   .cal .ev.cancelada { background:#cfccdc; text-decoration:line-through; } .cal .ev.mia { background:var(--amarillo); color:var(--azul); } .cal .ev.sel { outline:3px solid var(--celeste); }
   .cal .aus { font:700 10px var(--f); color:var(--rojo); }
   .mes { display:flex; align-items:center; gap:10px; } .mes b { font:800 20px var(--slab); min-width:180px; text-align:center; }
+  .reloj-aj { display:flex; align-items:center; gap:8px; flex-wrap:wrap; } .reloj-aj > span:first-child { font:800 15px var(--f); margin-right:4px; } .reloj-aj #reloj-min { font-size:20px; color:var(--rojo); } .reloj-aj .ayuda { flex-basis:100%; }
   .grilla { display:grid; grid-template-columns:repeat(auto-fit,minmax(400px,1fr)); gap:8px; }   /* los dos equipos uno al lado del otro; si no entran con el nombre completo, uno debajo del otro */
   @media (max-width:760px) { .grilla { grid-template-columns:1fr; } }
   #fal .dos { gap:14px; } .a-parte { display:flex; flex-direction:column; gap:6px; } .a-titulo { font:800 12px var(--f); letter-spacing:.1em; text-transform:uppercase; color:var(--gris); }
@@ -1133,6 +1134,7 @@ VISTAS.partido = (m) => {
       <div class="marcador-m"><input type="number" min="0" value="${esc(st.goles_local)}" placeholder="–"><span class="g">–</span><input type="number" min="0" value="${esc(st.goles_visitante)}" placeholder="–"></div>
       <div class="lbl"><span>Estado: <b id="estado-t">${esc(st.estado || "Previa")}</b>${st.inicio_tiempo ? ` · arrancó ${esc(st.inicio_tiempo)}` : ""}</span></div>
       <div class="botonera"><button class="btn sec" data-e="PREVIA">◷ Previa</button><button class="btn ce" data-e="1T">▶ Arrancó el 1.er tiempo</button><button class="btn sec" data-e="ET">⏸ Entretiempo</button><button class="btn ce" data-e="2T">▶ Arrancó el 2.º tiempo</button><button class="btn" data-e="FIN">■ Final</button></div>
+      <div class="reloj-aj"><span>Reloj: <b id="reloj-min">—</b></span><button class="btn sec chico" data-aj="-5">−5'</button><button class="btn sec chico" data-aj="-1">−1'</button><button class="btn sec chico" data-aj="1">+1'</button><button class="btn sec chico" data-aj="5">+5'</button><span class="ayuda">Si el tiempo se marcó tarde (o temprano), adelantá o atrasá el reloj.</span></div>
       <div class="botonera"><button class="btn am" data-g="L">+ Gol ${esc(st.local || "local")}</button><button class="btn am" data-g="V">+ Gol ${esc(st.visitante || "visitante")}</button><button class="btn ro" data-r="L">+ Roja ${esc(st.local || "local")}</button><button class="btn ro" data-r="V">+ Roja ${esc(st.visitante || "visitante")}</button></div>
       <div id="quien"></div>
       ${ultimoPartido ? `<button class="btn sec" id="deshacer">↶ Deshacer lo último</button>` : ""}
@@ -1144,6 +1146,14 @@ VISTAS.partido = (m) => {
     const ahora = () => new Date().toTimeString().slice(0, 5);
     const minuto = () => { const mm = (st.inicio_tiempo || "").match(/(\d+):(\d+)/); if (!mm) return ""; const d = new Date(); d.setHours(+mm[1], +mm[2], 0, 0); let x = Math.max(1, Math.floor((Date.now() - d) / 60000) + 1); if (/2/.test(st.estado || "")) x += 45; const base = /2/.test(st.estado || "") ? 90 : 45; return x > base ? base + "+" + (x - base) : String(x); };   // descuento: 45+1, 90+2
     const vivo = async (c) => { ultimoPartido = Object.fromEntries(Object.keys(c).map((k) => [k, st[k] || ""])); Object.assign(st, c); D.partido = conClaves(D.partido, c); enCola("guardarClaves", ["partido_vivo", c]); sellar(); VISTAS.partido(m); };
+    // adelantar / atrasar el reloj: corre la hora en que arrancó el tiempo (adelantar 1' = arrancó 1 minuto antes)
+    const pintarReloj = () => { const el = G2.querySelector("#reloj-min"); if (!el) return; const x = minuto(); el.textContent = /ET|FIN/i.test(st.estado || "") || !x ? (st.estado === "ET" ? "Entretiempo" : "—") : x + "'"; };
+    G2.querySelectorAll("[data-aj]").forEach((b) => (b.onclick = () => {
+      const mm = (st.inicio_tiempo || "").match(/(\d+):(\d+)/); if (!mm || !/T$/.test(st.estado || "")) { aviso("Primero marcá que arrancó el tiempo (1.º o 2.º)", true); return; }
+      let t = (+mm[1] * 60 + +mm[2] - +b.dataset.aj + 1440) % 1440; const hh = String(Math.floor(t / 60)).padStart(2, "0") + ":" + String(t % 60).padStart(2, "0");
+      vivo({ inicio_tiempo: hh }); aviso("Reloj: " + minuto() + "'");
+    }));
+    clearInterval(window.__relojAj); window.__relojAj = setInterval(pintarReloj, 15000); setTimeout(pintarReloj, 0);
     G2.querySelectorAll("[data-e]").forEach((b) => (b.onclick = () => vivo(Object.assign({ estado: b.dataset.e }, /T$/.test(b.dataset.e) ? { inicio_tiempo: ahora() } : {}, b.dataset.e === "1T" && st.goles_local === "" ? { goles_local: "0", goles_visitante: "0" } : {}, b.dataset.e === "PREVIA" ? { inicio_tiempo: "", minuto: "", goles_local: "", goles_visitante: "" } : {}))));
     const agregar = (lado, roja) => {
       // se pregunta en pantalla quién fue (se puede dejar vacío)
