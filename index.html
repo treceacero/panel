@@ -235,6 +235,10 @@
     #impresion h3, #impresion h4 { break-after:avoid; }
   }
   .pchip.extra { border-style:dashed; } .pchip.otro-em { background:transparent; border:2px dashed var(--gris); color:var(--gris); } .pchip.ausente[disabled] { cursor:not-allowed; opacity:.55; text-decoration:line-through; }
+  .acc .usu { display:block; margin-top:2px; } .acc .usu .enlace { font-size:12px; padding:0; } .acc .u-acc { display:inline-flex; margin-top:4px; }
+  .acc .u-pide, .acc .u-clave { margin-top:6px; display:flex; flex-wrap:wrap; gap:6px; align-items:center; font-size:13px; } .acc .u-clave code { font:800 15px monospace; letter-spacing:1px; background:var(--fondo); padding:2px 6px; user-select:all; }
+  .esc-m { display:flex; align-items:center; gap:10px; flex-wrap:wrap; min-width:0; } .esc-m .subir { white-space:normal; text-align:center; max-width:100%; } .esc-v { width:56px; height:56px; flex:none; display:flex; align-items:center; justify-content:center; background:var(--fondo); font:700 10px var(--f); color:var(--gris); text-align:center; }
+  .esc-v img { max-width:100%; max-height:100%; object-fit:contain; }
   .cal { display:grid; grid-template-columns:repeat(7, minmax(0,1fr)); gap:4px; }
   .cal .dn { font:800 11px var(--f); letter-spacing:.1em; color:var(--gris); text-transform:uppercase; padding:4px; }
   .cal .d { background:#fff; outline:1px solid var(--linea); min-height:96px; padding:6px; display:flex; flex-direction:column; gap:4px; min-width:0; }
@@ -1124,7 +1128,7 @@ VISTAS.partido = (m) => {
   if (reusa) refrescar();
   F.innerHTML = `<h2><i style="background:var(--celeste)"></i>¿Qué partido mostramos?</h2>`;
   const manual = /auf|manual/i.test(st.competencia || "");
-  const G1 = h(`<div class="grupo"><b>Competencia</b><div class="chips">${[["", "Automático"], ["uruguay", "Uruguay"], ["libertadores", "Libertadores"], ["sudamericana", "Sudamericana"], ["seleccion", "Selección"], ["copa auf", "Copa AUF (a mano)"], ["simular champions", "Simulación (Champions)"]].map(([k, t]) => `<button class="chip${sinT(st.competencia || "") === k ? " on" : ""}" data-k="${k}">${t}</button>`).join("")}</div></div>`);
+  const G1 = h(`<div class="grupo"><b>Competencia</b><div class="chips">${[["", "Automático"], ["uruguay", "Uruguay"], ["libertadores", "Libertadores"], ["sudamericana", "Sudamericana"], ["seleccion", "Selección"], ["manual", "Manual (cualquier liga)"]].map(([k, t]) => `<button class="chip${(k === "manual" ? manual : !manual && sinT(st.competencia || "") === k) ? " on" : ""}" data-k="${k}">${t}</button>`).join("")}</div></div>`);
   const yaGuardar = (c) => { Object.assign(st, c); D.partido = conClaves(D.partido, c); enCola("guardarClaves", ["partido_vivo", c]); sellar(); VISTAS.partido(m); };
   // pantalla del partido: módulo de abajo, vista de cada equipo, qué se ve y créditos
   const chipsDe = (clave, ops, def) => `<div class="chips" data-clave="${clave}">${ops.map(([k, t]) => `<button class="chip${(sinT(st[clave] || "") || def) === k ? " on" : ""}" data-v="${k}">${t}</button>`).join("")}</div>`;
@@ -1207,6 +1211,20 @@ VISTAS.partido = (m) => {
     G2.querySelectorAll("[data-r]").forEach((b) => (b.onclick = () => agregar(b.dataset.r, true)));
     const bDes = G2.querySelector("#deshacer");
     if (bDes) bDes.onclick = async () => { const c = ultimoPartido; ultimoPartido = null; Object.assign(st, c); D.partido = conClaves(D.partido, c); enCola("guardarClaves", ["partido_vivo", c]); sellar(); VISTAS.partido(m); };
+    // manual: cualquier liga o competencia, y si hace falta, el escudo de cada equipo (queda guardado en «Escudos» y se ve en todas las pantallas)
+    const GE = h(`<div class="grupo"><b>Liga y escudos</b>
+      <label>Liga o competencia<input type="text" id="m-liga" list="m-ligas" value="${esc(st.torneo || "")}" placeholder="Ej.: Copa AUF Uruguay, Segunda División, Liga Profesional Argentina"><datalist id="m-ligas">${["Copa AUF Uruguay", "Liga AUF Uruguaya", "Segunda División Profesional", "Primera División Amateur", "CONMEBOL Libertadores", "CONMEBOL Sudamericana", "Amistoso internacional", "Eliminatorias Sudamericanas", "Liga Profesional Argentina", "Brasileirão", "LaLiga", "Premier League", "Serie A", "Champions League"].map((x) => `<option value="${x}">`).join("")}</datalist></label>
+      <div class="dos">${[["L", st.local || "Local"], ["V", st.visitante || "Visitante"]].map(([k, n]) => `<div class="esc-m"><span class="esc-v" id="esc-${k}">${escudoDe(n) ? `<img src="${esc(escudoDe(n))}" alt="">` : "Sin escudo"}</span><span class="btn sec chico subir">Escudo de ${esc(n)}<input type="file" accept="image/*" data-e="${k}"></span></div>`).join("")}</div>
+      <span class="ayuda">Si el escudo no aparece solo, subilo acá (mejor un PNG con fondo transparente). Queda guardado en «Escudos» para la próxima.</span></div>`);
+    GE.querySelector("#m-liga").oninput = (e) => set("torneo", e.target.value.trim());
+    GE.querySelectorAll("[data-e]").forEach((inp) => (inp.onchange = async () => {
+      const f = inp.files[0], k = inp.dataset.e, n = (k === "L" ? st.local : st.visitante) || ""; inp.value = ""; if (!f) return;
+      if (!n.trim()) { aviso("Poné primero el nombre del " + (k === "L" ? "local" : "visitante"), true); return; }
+      try { const b64 = await escudoPNG(f), caja = GE.querySelector("#esc-" + k); caja.innerHTML = `<img src="data:image/png;base64,${b64}" alt="">`; aviso("Subiendo el escudo…");
+        await srv("subirEscudo", n, st.torneo || "", b64); aviso("Escudo de " + n + " guardado ✓ · en la pantalla aparece en unos segundos"); }
+      catch (x) { aviso(x.message || String(x), true); }
+    }));
+    F.appendChild(GE);
     F.appendChild(G2);
   }
   // tarjetas a mano: número de camiseta + minuto; la pantalla le pone el nombre con el plantel de ESPN
@@ -1633,7 +1651,7 @@ VISTAS.accesos = (m) => {
   const tb = h(`<table class="acc"><tr><th>Cuenta</th><th>Qué puede usar (tocá para cambiar)</th><th>Hasta</th><th></th></tr><tr><td><div class="per"><i style="background:var(--azul)">T</i><div><b>Trece A Cero<span class="madre">MADRE</span></b><small>programatreceacero@gmail.com</small></div></div></td><td><div class="niv"><button class="editar">Todo</button></div></td><td>—</td><td></td></tr></table>`);
   Object.entries(A).sort((a, b) => (a[1].nombre || a[0]).localeCompare(b[1].nombre || b[0])).forEach(([email, a]) => {
     const venc = a.vence && a.vence < hoyISO();
-    const tr = h(`<tr><td><div class="per"><i>${esc((a.nombre || email)[0].toUpperCase())}</i><div><b>${esc(a.nombre || email)}${venc ? '<span class="vencido">VENCIDO</span>' : ""}</b><small>${esc(email)}</small></div></div></td><td><div class="niv"></div></td><td><input type="date" value="${esc(a.vence || "")}" style="padding:6px 8px;font-size:13px;width:150px"></td><td><button class="quitar-acc">Quitar acceso</button></td></tr>`);
+    const tr = h(`<tr><td><div class="per"><i>${esc((a.nombre || email)[0].toUpperCase())}</i><div><b>${esc(a.nombre || email)}${venc ? '<span class="vencido">VENCIDO</span>' : ""}</b><small>${esc(email)}</small><small class="usu">Usuario: <button class="enlace u-edit" title="Tocá para cambiarlo">${esc(a.usuario || "—")}</button> · Clave: ${a.clave === "propia" ? "propia ✓" : a.clave === "provisoria" ? "provisoria (sin cambiar)" : "sin clave"}</small><span class="u-acc"><button class="btn sec chico u-gen">Clave provisoria</button></span><div class="u-res"></div></div></div></td><td><div class="niv"></div></td><td><input type="date" value="${esc(a.vence || "")}" style="padding:6px 8px;font-size:13px;width:150px"></td><td><button class="quitar-acc">Quitar acceso</button></td></tr>`);
     const N = tr.querySelector(".niv"), secs = Object.assign({}, a.secciones || {});
     SECS_ACC.forEach(([k, t]) => {
       const b = h(`<button class="${secs[k] || ""}" title="Tocá para cambiar">${t}: ${TXTN[secs[k] || ""]}</button>`);
@@ -1641,6 +1659,20 @@ VISTAS.accesos = (m) => {
         try { D.accesos = await guardar("cambiarAcceso", email, { secciones: secs }); } catch (e) {} };
       N.appendChild(b);
     });
+    // usuario: se cambia tocándolo; clave provisoria: se genera al azar y se muestra una sola vez (o se manda por mail)
+    tr.querySelector(".u-edit").onclick = (ev) => { const b = ev.currentTarget, inp = h(`<input type="text" value="${esc(a.usuario || "")}" style="padding:3px 6px;font-size:12px;width:150px" maxlength="24">`);
+      b.replaceWith(inp); inp.focus(); inp.select(); let hecho = false;
+      const fin = async () => { if (hecho) return; hecho = true; const v = inp.value.trim().toLowerCase(); if (v && v !== a.usuario) { try { D.accesos = await guardar("cambiarUsuario", email, v); } catch (x) {} } ir("accesos"); };
+      inp.onkeydown = (e) => { if (e.key === "Enter") fin(); if (e.key === "Escape") { hecho = true; ir("accesos"); } }; inp.onblur = fin; };
+    tr.querySelector(".u-gen").onclick = () => { const U = tr.querySelector(".u-res");
+      U.innerHTML = `<div class="u-pide">${a.clave ? "<b>Ojo:</b> la clave que tiene deja de servir. " : ""}<button class="btn am chico" data-m="1">Generar y mandar por mail</button><button class="btn sec chico" data-m="0">Generar y mostrar</button><button class="enlace">Cancelar</button></div>`;
+      U.querySelector(".enlace").onclick = () => (U.innerHTML = "");
+      U.querySelectorAll("[data-m]").forEach((b) => (b.onclick = async () => { U.querySelectorAll("button").forEach((x) => (x.disabled = true));
+        try { const r = await srv("generarClaveProvisoria", email, b.dataset.m === "1"); a.usuario = r.usuario; a.clave = "provisoria";
+          U.innerHTML = `<div class="u-clave">Usuario <b>${esc(r.usuario)}</b> · clave provisoria <code>${esc(r.clave)}</code>${r.enviada ? " · <b>mandada por mail ✓</b>" : ""}<br><small>Se muestra solo esta vez. La cambia en su primer ingreso.</small> <button class="btn sec chico">Copiar</button></div>`;
+          const txt = `Panel 13a0: ${PANEL_URL}\nUsuario: ${r.usuario} (o tu correo)\nClave provisoria: ${r.clave}\nLa primera vez que entres te pide que la cambies.`;
+          U.querySelector(".u-clave button").onclick = async () => { try { await navigator.clipboard.writeText(txt); aviso("Copiado"); } catch (x) { aviso("No se pudo copiar: seleccioná el texto", true); } };
+        } catch (x) { aviso(x.message || String(x), true); U.innerHTML = ""; } })); };
     const fv = tr.querySelector("input[type=date]");
     fv.onchange = async () => { try { D.accesos = await guardar("cambiarAcceso", email, { vence: fv.value }); ir("accesos"); } catch (e) {} };
     const bq = tr.querySelector(".quitar-acc");
@@ -1677,7 +1709,8 @@ VISTAS.accesos = (m) => {
     e.target.disabled = true;
     try {
       D.accesos = await guardar("darAcceso", mail, nom, Object.assign({}, nuevo), vence);
-      const txt = invitacion(nom, nuevo, mail);
+      let cred = null; try { cred = await srv("generarClaveProvisoria", mail.toLowerCase(), false); } catch (x) {}
+      const txt = invitacion(nom, nuevo, mail) + (cred ? `\n\nTambién podés entrar con usuario y clave («Entrar con usuario y clave»):\nUsuario: ${cred.usuario}\nClave provisoria: ${cred.clave}\nLa primera vez te pide que la cambies.` : "");
       ir("accesos");   // la lista ya muestra la cuenta nueva; abajo queda el mensaje para mandarle
       const inv = document.querySelector("#na-inv");
       inv.innerHTML = `<div class="invitacion"><b>✓ Listo. Mandale este mensaje:</b><pre></pre><div class="pie"><a class="btn ok chico" target="_blank" href="https://wa.me/?text=${encodeURIComponent(txt)}">Mandar por WhatsApp</a><button class="btn sec chico">Copiar</button></div></div>`;
@@ -1704,6 +1737,18 @@ const ausenteEl = (p, f) => (p.ausencias || []).find((a) => a.desde <= f && a.ha
 const iniciales = (n) => String(n || "?").trim().split(/\s+/).slice(0, 2).map((x) => x[0]).join("").toUpperCase();
 const partidoTxt = (c) => c.local + (c.visitante ? " vs " + c.visitante : "");
 // achicar/recortar imágenes antes de subirlas
+// escudo ya cargado en la pestaña «escudos» para ese equipo (por nombre u otros nombres)
+function escudoDe(n) {
+  const t = D.escudos || [], c = cab(t), ie = c.indexOf("equipo"), ix = c.indexOf("escudo"), io = c.indexOf("otros_nombres"), k = sinT(n).trim(); if (!k || ie < 0 || ix < 0) return "";
+  const f = t.slice(1).find((r) => [r[ie]].concat(String(io >= 0 ? r[io] || "" : "").split(/[,;]/)).some((x) => sinT(x).trim() === k)); return f && f[ix] ? img(String(f[ix]).trim()) : "";
+}
+// escudo: se achica a 200 x 200 como máximo, sin recortar y con el fondo transparente (PNG)
+function escudoPNG(file) {
+  return new Promise((ok, mal) => { const im = new Image(), u = URL.createObjectURL(file);
+    im.onload = () => { const k = Math.min(1, 200 / Math.max(im.width, im.height)), c = document.createElement("canvas"); c.width = Math.round(im.width * k); c.height = Math.round(im.height * k);
+      c.getContext("2d").drawImage(im, 0, 0, c.width, c.height); URL.revokeObjectURL(u); ok(c.toDataURL("image/png").split(",")[1]); };
+    im.onerror = () => mal(new Error("No se pudo leer la imagen.")); im.src = u; });
+}
 function leerImagen(file, ancho, alto) {   // alto = null: solo achica; si no, recorta al centro con esa proporción
   return new Promise((ok, mal) => {
     const im = new Image(); im.onerror = () => mal(new Error("No pude leer esa imagen."));
@@ -2382,8 +2427,9 @@ function ingresar() {
     C.innerHTML = `<form class="ingreso"><div class="marca-ing"><b>13<i>a</i>0</b><span>Panel</span></div>
       <label>Tu cuenta de Gmail<input type="email" name="email" autocomplete="email" required placeholder="nombre@gmail.com"></label>
       <label hidden>Código que te llegó por mail<input name="codigo" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="123456"></label>
-      <button class="btn">Mandame el código</button><small></small><button type="button" class="enlace" id="pedir-acc">¿Sos nuevo? Solicitá tu acceso</button></form>`;
+      <button class="btn">Mandame el código</button><small></small><button type="button" class="enlace" id="con-clave">Entrar con usuario y clave</button><button type="button" class="enlace" id="pedir-acc">¿Sos nuevo? Solicitá tu acceso</button></form>`;
     C.querySelector("#pedir-acc").onclick = () => solicitud(pedir);
+    C.querySelector("#con-clave").onclick = () => conClave(pedir);
     const F = C.querySelector("form"), M = F.email, K = F.codigo, B = F.querySelector("button"), T = F.querySelector("small");
     M.value = guardado("panel13a0.email") || "";
     F.onsubmit = async (e) => {
@@ -2401,6 +2447,38 @@ function ingresar() {
       } catch (x) { T.style.color = "var(--rojo)"; T.textContent = x.message || String(x); }
       B.disabled = false;
     };
+    };
+    // usuario (o correo) y clave; con la clave provisoria, primero hay que elegir una propia
+    const conClave = (pedir) => {
+      C.innerHTML = `<form class="ingreso"><div class="marca-ing"><b>13<i>a</i>0</b><span>Panel</span></div>
+        <label>Usuario o correo<input name="id" autocomplete="username" required placeholder="nombre.apellido o nombre@gmail.com" autocapitalize="none"></label>
+        <label>Clave<input type="password" name="clave" autocomplete="current-password" required></label>
+        <button class="btn">Entrar</button><small></small><button type="button" class="enlace">← Entrar con código por mail</button></form>`;
+      const F = C.querySelector("form"), B = F.querySelector(".btn"), T = F.querySelector("small");
+      F.id.value = guardado("panel13a0.usuario") || guardado("panel13a0.email") || "";
+      F.querySelector(".enlace").onclick = login;
+      F.onsubmit = async (e) => {
+        e.preventDefault(); B.disabled = true; T.style.color = "";
+        try { const r = await pedir("entrarClave", { id: F.id.value, clave: F.clave.value }); guardado("panel13a0.usuario", F.id.value.trim().toLowerCase()); guardado("panel13a0.email", r.email);
+          if (r.cambiar) return nuevaClave(pedir, r.ses);
+          guardado("panel13a0.ses", r.ses); C.innerHTML = "Cargando el panel…"; listo(); }
+        catch (x) { T.style.color = "var(--rojo)"; T.textContent = x.message || String(x); B.disabled = false; }
+      };
+    };
+    const nuevaClave = (pedir, ses) => {
+      C.innerHTML = `<form class="ingreso"><div class="marca-ing"><b>13<i>a</i>0</b><span>Elegí tu clave</span></div>
+        <span class="ayuda">Es tu primer ingreso con la clave provisoria: elegí una propia. Al menos 8 caracteres, con letras y números.</span>
+        <label>Clave nueva<input type="password" name="n1" autocomplete="new-password" required minlength="8"></label>
+        <label>Repetila<input type="password" name="n2" autocomplete="new-password" required minlength="8"></label>
+        <button class="btn">Guardar y entrar</button><small></small></form>`;
+      const F = C.querySelector("form"), B = F.querySelector(".btn"), T = F.querySelector("small");
+      F.onsubmit = async (e) => {
+        e.preventDefault(); T.style.color = "var(--rojo)";
+        if (F.n1.value !== F.n2.value) { T.textContent = "Las dos claves no son iguales."; return; }
+        B.disabled = true;
+        try { await pedir("cambiarClave", { ses, nueva: F.n1.value }); guardado("panel13a0.ses", ses); C.innerHTML = "Clave guardada ✓ · cargando el panel…"; listo(); }
+        catch (x) { T.textContent = x.message || String(x); B.disabled = false; }
+      };
     };
     const solicitud = (pedir) => {
       C.innerHTML = `<form class="ingreso"><div class="marca-ing"><b>13<i>a</i>0</b><span>Solicitar acceso</span></div>
