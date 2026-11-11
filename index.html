@@ -240,6 +240,20 @@
   .esc-m { display:flex; align-items:center; gap:10px; flex-wrap:wrap; min-width:0; } .esc-m .subir { white-space:normal; text-align:center; max-width:100%; } .esc-v { width:56px; height:56px; flex:none; display:flex; align-items:center; justify-content:center; background:var(--fondo); font:700 10px var(--f); color:var(--gris); text-align:center; }
   .esc-v img { max-width:100%; max-height:100%; object-fit:contain; }
   .pv-tabs { display:flex; flex-wrap:wrap; gap:6px; align-items:center; padding-bottom:12px; border-bottom:2px solid var(--linea); margin-bottom:4px; position:sticky; top:0; background:var(--blanco); z-index:3; }
+  .pv-acc { flex-basis:100%; display:flex; gap:6px; flex-wrap:wrap; }
+  .vivo #vv { display:flex; flex-direction:column; gap:12px; }
+  .vv-top { display:flex; gap:12px; flex-wrap:wrap; align-items:stretch; } .vv-reloj { background:var(--azul); color:#fff; padding:10px 14px; display:flex; flex-direction:column; align-items:center; gap:4px; min-width:130px; }
+  .vv-reloj small { font:800 11px var(--f); letter-spacing:.1em; text-transform:uppercase; opacity:.8; } .vv-reloj b { font:900 40px/1 var(--f); } .vv-reloj span { display:flex; gap:6px; } .vv-reloj button { border:0; background:rgba(255,255,255,.18); color:#fff; font:800 14px var(--f); padding:8px 12px; cursor:pointer; }
+  .vv-marc { flex:1; min-width:200px; background:var(--fondo); display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:10px; padding:10px 14px; font:800 16px/1.1 var(--f); } .vv-marc b { font:900 40px/1 var(--f); white-space:nowrap; } .vv-marc span:last-child { text-align:right; }
+  .vv-est { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:6px; } .vv-est .btn { padding:12px 8px; }
+  .vv-acc { display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:8px; align-items:end; } .vv-acc .btn { padding:18px 8px; font-size:17px; } .vv-min input { padding:10px; }
+  .vv-ayuda { font:700 14px var(--f); color:var(--azul); background:#FFF6CC; padding:8px 10px; }
+  .vv-eqs { display:grid; grid-template-columns:1fr 1fr; gap:12px; } @media (max-width:760px) { .vv-eqs { grid-template-columns:1fr; } }
+  .vv-eq { min-width:0; display:flex; flex-direction:column; gap:8px; } .vv-eq.apagado { opacity:.35; pointer-events:none; } .vv-eq h5 { font:900 15px var(--f); text-transform:uppercase; letter-spacing:.04em; }
+  .vv-js { display:grid; grid-template-columns:repeat(auto-fill,minmax(112px,1fr)); gap:6px; }
+  .vv-j { display:flex; align-items:center; gap:8px; min-height:52px; padding:6px 8px; border:0; background:var(--fondo); color:var(--azul); font:800 14px/1.1 var(--f); text-align:left; cursor:pointer; overflow:hidden; } .vv-j:active { background:var(--amarillo); }
+  .vv-j b { flex:none; width:34px; height:34px; display:flex; align-items:center; justify-content:center; background:var(--azul); color:#fff; font-weight:900; font-size:16px; }
+  .vv-man { display:flex; gap:6px; flex-wrap:wrap; } .vv-man input { width:80px; padding:8px; }
   .pv-tabs .chip { font-size:14px; } .pv-estado { margin-left:auto; font:800 12px var(--f); color:var(--gris); } .pv-estado.ok { color:var(--verde); }
   .esc-bus { display:flex; flex-direction:column; gap:8px; padding:10px; background:var(--fondo); } .esc-res { display:grid; grid-template-columns:repeat(auto-fill,minmax(92px,1fr)); gap:8px; max-height:260px; overflow:auto; }
   .esc-res button { display:flex; flex-direction:column; align-items:center; gap:4px; padding:6px; background:var(--blanco); border:2px solid transparent; font:700 11px var(--f); color:var(--azul); cursor:pointer; text-align:center; }
@@ -307,7 +321,8 @@
   .aire { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:10px; }
   .aire .sw { background:#fff; outline:1px solid var(--linea); outline-offset:-1px; }
   .atajos { display:grid; grid-template-columns:1fr 1fr; gap:10px; max-width:520px; }
-  .atajos .btn { padding:18px 12px; font-size:16px; }
+  .atajos .btn { padding:18px 12px; font-size:16px; min-width:0; }
+  @media (max-width:760px) { .atajos { grid-template-columns:1fr; max-width:none; } #fal .dos { grid-template-columns:1fr; } .a-fbtn { white-space:normal; max-width:100%; } main input, main select, main textarea { min-width:0; max-width:100%; } .card { min-width:0; max-width:100%; } .marcador-m input { min-width:0; width:100%; } .noti .mov button { width:42px; height:40px; } .g-b { width:40px; height:40px; } .t-it button { padding:8px 12px; font-size:19px; } .barra-r button { padding:12px 12px; } .g-j { flex-wrap:wrap; } .g-j .g-nom { flex-basis:60%; } }
   .quien { display:flex; gap:8px; align-items:center; background:#FFF6CC; padding:10px; flex-wrap:wrap; }
   .quien input { flex:1; min-width:160px; }
   @media (max-width:760px) {
@@ -1118,7 +1133,11 @@ VISTAS.partido = (m) => {
   // cada campo se guarda solo, un segundo después de dejar de escribir (no hace falta ningún botón)
   const autoGuardar = debounce(() => { const c = Object.assign({}, cambiosPend, cambios); Object.keys(cambios).forEach((k) => delete cambios[k]); cambiosPend = {}; if (!Object.keys(c).length) return;
     D.partido = conClaves(D.partido, c); enCola("guardarClaves", ["partido_vivo", c]); sellar(); const e = document.getElementById("pv-estado"); if (e) { e.textContent = "✓ Guardado " + new Date().toTimeString().slice(0, 5); e.classList.add("ok"); } }, 1000);
-  const set = (k, x) => { st[k] = x; cambios[k] = x; refrescar(); const e = document.getElementById("pv-estado"); if (e) { e.textContent = "Guardando…"; e.classList.remove("ok"); } autoGuardar(); };
+  // todo cambio queda en una pila para «Deshacer» (hasta 30 pasos)
+  const apilar = (c) => { pilaPartido.push(c); if (pilaPartido.length > 30) pilaPartido.shift(); };
+  const aplicar = (c, sinPila) => { if (!sinPila) apilar(Object.fromEntries(Object.keys(c).map((k) => [k, st[k] || ""]))); Object.assign(st, c); D.partido = conClaves(D.partido, c); enCola("guardarClaves", ["partido_vivo", c]); sellar(); VISTAS.partido(m); };
+  let ultSet = { k: "", t: 0 };
+  const set = (k, x) => { if (ultSet.k !== k || Date.now() - ultSet.t > 3000) apilar({ [k]: st[k] || "" }); ultSet = { k, t: Date.now() }; st[k] = x; cambios[k] = x; refrescar(); const e = document.getElementById("pv-estado"); if (e) { e.textContent = "Guardando…"; e.classList.remove("ok"); } autoGuardar(); };
   if (!m.querySelector("#vp")) m.innerHTML = titulo("Partido en vivo") + `<div class="cuerpo"><div class="card form" id="fp"></div><div class="card vista" id="vp"></div></div><div class="card form" id="fal"></div>`;
   const F = m.querySelector("#fp"), V = m.querySelector("#vp");
   let FA = m.querySelector("#fal"); if (!FA) { FA = h(`<div class="card form" id="fal"></div>`); m.appendChild(FA); }   // alineaciones a todo el ancho: los nombres se leen completos
@@ -1137,7 +1156,7 @@ VISTAS.partido = (m) => {
   F.innerHTML = `<h2><i style="background:var(--celeste)"></i>¿Qué partido mostramos?</h2>`;
   const manual = /auf|manual/i.test(st.competencia || "");
   const G1 = h(`<div class="grupo"><b>Competencia</b><div class="chips">${[["", "Automático"], ["uruguay", "Uruguay"], ["libertadores", "Libertadores"], ["sudamericana", "Sudamericana"], ["seleccion", "Selección"], ["manual", "Manual (cualquier liga)"]].map(([k, t]) => `<button class="chip${(k === "manual" ? manual : !manual && sinT(st.competencia || "") === k) ? " on" : ""}" data-k="${k}">${t}</button>`).join("")}</div></div>`);
-  const yaGuardar = (c) => { Object.assign(st, c); D.partido = conClaves(D.partido, c); enCola("guardarClaves", ["partido_vivo", c]); sellar(); VISTAS.partido(m); };
+  const yaGuardar = (c) => aplicar(c);
   // pantalla del partido: módulo de abajo, vista de cada equipo, qué se ve y créditos
   const chipsDe = (clave, ops, def) => `<div class="chips" data-clave="${clave}">${ops.map(([k, t]) => `<button class="chip${(sinT(st[clave] || "") || def) === k ? " on" : ""}" data-v="${k}">${t}</button>`).join("")}</div>`;
   const VISTAS_EQ = [["auto", "Automática"], ["cancha", "Canchita"], ["lista", "Listado XI"], ["suplentes", "Suplentes"]];
@@ -1184,7 +1203,7 @@ VISTAS.partido = (m) => {
       <div class="reloj-aj"><span>Reloj: <b id="reloj-min">—</b></span><button class="btn sec chico" data-aj="-5">−5'</button><button class="btn sec chico" data-aj="-1">−1'</button><button class="btn sec chico" data-aj="1">+1'</button><button class="btn sec chico" data-aj="5">+5'</button><span class="ayuda">Si el tiempo se marcó tarde (o temprano), adelantá o atrasá el reloj.</span></div>
       <div class="botonera"><button class="btn am" data-g="L">+ Gol ${esc(st.local || "local")}</button><button class="btn am" data-g="V">+ Gol ${esc(st.visitante || "visitante")}</button><button class="btn ro" data-r="L">+ Roja ${esc(st.local || "local")}</button><button class="btn ro" data-r="V">+ Roja ${esc(st.visitante || "visitante")}</button></div>
       <div id="quien"></div>
-      ${ultimoPartido ? `<button class="btn sec" id="deshacer">↶ Deshacer lo último</button>` : ""}
+
       <label>Incidencias<textarea rows="3">${esc(st.incidencias)}</textarea><span class="ayuda">Una por línea o separadas por «;». L = local, V = visitante. Ej.: L 21 Nombre Apellido · V 58 Otro Nombre roja</span></label></div>`);
     const ins = G2.querySelectorAll("input"), ta = G2.querySelector("textarea");
     const mapa = ["local", "visitante", "estadio", "fase", "goles_local", "goles_visitante"];
@@ -1192,7 +1211,7 @@ VISTAS.partido = (m) => {
     ta.oninput = () => set("incidencias", ta.value);
     const ahora = () => new Date().toTimeString().slice(0, 5);
     const minuto = () => { const mm = (st.inicio_tiempo || "").match(/(\d+):(\d+)/); if (!mm) return ""; const d = new Date(); d.setHours(+mm[1], +mm[2], 0, 0); let x = Math.max(1, Math.floor((Date.now() - d) / 60000) + 1); if (/2/.test(st.estado || "")) x += 45; const base = /2/.test(st.estado || "") ? 90 : 45; return x > base ? base + "+" + (x - base) : String(x); };   // descuento: 45+1, 90+2
-    const vivo = async (c) => { ultimoPartido = Object.fromEntries(Object.keys(c).map((k) => [k, st[k] || ""])); Object.assign(st, c); D.partido = conClaves(D.partido, c); enCola("guardarClaves", ["partido_vivo", c]); sellar(); VISTAS.partido(m); };
+    const vivo = (c) => aplicar(c);
     // adelantar / atrasar el reloj: corre la hora en que arrancó el tiempo (adelantar 1' = arrancó 1 minuto antes)
     const pintarReloj = () => { const el = G2.querySelector("#reloj-min"); if (!el) return; const x = minuto(); el.textContent = /ET|FIN/i.test(st.estado || "") || !x ? (st.estado === "ET" ? "Entretiempo" : "—") : x + "'"; };
     G2.querySelectorAll("[data-aj]").forEach((b) => (b.onclick = () => {
@@ -1270,7 +1289,7 @@ VISTAS.partido = (m) => {
   let ladoT = "L";
   GT.querySelectorAll("#t-lado .chip").forEach((b) => (b.onclick = () => { ladoT = b.dataset.l; GT.querySelectorAll("#t-lado .chip").forEach((x) => x.classList.toggle("on", x === b)); }));
   const listaT = () => (st.tarjetas || "").split(/[;\n]/).map((x) => x.trim()).filter(Boolean);
-  const guardarT = async (arr) => { const c = { tarjetas: arr.join("; ") }; st.tarjetas = c.tarjetas; cambios.tarjetas = c.tarjetas; pintarT(); pintarS(); refrescar(); try { await guardar("guardarClaves", "partido_vivo", c); } catch (e) {} };
+  const guardarT = async (arr) => { apilar({ tarjetas: st.tarjetas || "" }); const c = { tarjetas: arr.join("; ") }; st.tarjetas = c.tarjetas; cambios.tarjetas = c.tarjetas; pintarT(); pintarS(); refrescar(); try { await guardar("guardarClaves", "partido_vivo", c); } catch (e) {} };
   const pintarT = () => {
     const L = GT.querySelector("#t-lista"), arr = listaT();
     L.innerHTML = arr.length ? "" : `<div class="vacio" style="padding:6px 0">Sin tarjetas cargadas.</div>`;
@@ -1349,7 +1368,7 @@ VISTAS.partido = (m) => {
     <div class="botonera"><button class="btn am" id="a-ok">Guardar alineación</button><button class="btn sec chico" id="a-no">Borrar</button></div>
     <span class="ayuda">Para cada equipo: pegá el texto de titulares y suplentes, sumá las imágenes que tengas y, si querés, elegí la formación. Titulares y suplentes se arman por separado, en el momento que salga cada uno: «Armar titulares» no toca los suplentes y «Armar suplentes» no toca los titulares. El armado busca a cada jugador en el plantel de Transfermarkt y le pone el número. Si hay diferencias, manda la placa del club, después Flashscore, después el texto y por último Transfermarkt; te avisa cuáles. Revisá el resultado y tocá «Guardar alineación». En las copas y la Selección sale sola de ESPN.</span></div>`);
   const aTxt = GA.querySelector("#a-txt"); aTxt.value = st.alineacion || "";
-  const guardarA = async (v) => { const c = { alineacion: v }; st.alineacion = v; cambios.alineacion = v; aTxt.value = v; pintarGrilla(); refrescar(); try { await guardar("guardarClaves", "partido_vivo", c); } catch (e) {} };
+  const guardarA = async (v) => { apilar({ alineacion: st.alineacion || "" }); const c = { alineacion: v }; st.alineacion = v; cambios.alineacion = v; aTxt.value = v; pintarGrilla(); refrescar(); try { await guardar("guardarClaves", "partido_vivo", c); } catch (e) {} };
   // grilla: una casilla por jugador (número y nombre) para corregir rápido; cada cambio rearma el texto
   const leerLinea = (l) => { const m = l.match(/^([^:(]+?)\s*(?:\(([^)]*)\))?\s*:\s*([^|]*)(?:\|(.*))?$/); if (!m) return null;
     const partes = (m[4] || "").split("|").map((x) => x.trim()), sup = (partes.find((x) => /^suplentes\s*:/i.test(x)) || "").replace(/^suplentes\s*:\s*/i, "");
@@ -1485,7 +1504,7 @@ VISTAS.partido = (m) => {
   let partidoA = null;
   if (!manual) partidosUruguayos(2).then((L) => {   // el partido de hoy (o el más cercano) para los nombres y el plantel
     const ahora = Date.now(); partidoA = L.sort((a, b) => Math.abs(new Date(a.fecha + "T" + a.hora) - ahora) - Math.abs(new Date(b.fecha + "T" + b.hora) - ahora))[0] || null;
-    if (partidoA) { if (!nl.value) nl.value = partidoA.local; if (!nv.value) nv.value = partidoA.visitante; limpiarViejas(partidoA.local, partidoA.visitante); }
+    if (partidoA) { if (!nl.value) nl.value = partidoA.local; if (!nv.value) nv.value = partidoA.visitante; limpiarViejas(partidoA.local, partidoA.visitante); try { pintarVivo(); } catch (e) {} }
     nl.placeholder = "Nombre del local";
   }).catch(() => {});
   const achicar = (f) => new Promise((ok, mal) => { const im = new Image(), u = URL.createObjectURL(f);
@@ -1539,11 +1558,61 @@ VISTAS.partido = (m) => {
   };
   GA.querySelector("#a-ia").onclick = armar; GA.querySelector("#a-is").onclick = armar;
   FA.appendChild(GA);
-  // la pestaña en secciones: Partido · Tarjetas y cambios · Alineaciones · Pantalla
-  const SECC = [["partido", "⚽ Partido"], ["sucesos", "🟨 Tarjetas y cambios"], ["alin", "👥 Alineaciones"], ["pantalla", "🖥 Pantalla"]];
-  const secDe = (g) => { const t = sinT((g.querySelector(":scope > b") || {}).textContent || ""); return /pantalla/.test(t) ? "pantalla" : /tarjeta|sustituc/.test(t) ? "sucesos" : "partido"; };
+  // ---- modo En vivo: lo que se toca durante el partido, en botones grandes. Se elige qué pasó y se toca al jugador; el minuto lo pone el reloj ----
+  const GV = h(`<div class="grupo vivo"><b>En vivo</b><div id="vv"></div></div>`);
+  const apeDe = (n) => { const w = String(n || "").trim().split(/\s+/); return w.length < 2 ? w[0] || "" : w.slice(1).join(" "); };
+  const jugDe = (lado) => {   // los que están en cancha y el banco, con los cambios ya hechos
+    const nom = (lado === "L" ? (manual ? st.local : nl.value) : (manual ? st.visitante : nv.value)) || "", k = sinT(nom).trim();
+    const l = k && (st.alineacion || "").split("\n").map((x) => x.trim()).filter(Boolean).map(leerLinea).filter(Boolean).find((e) => { const q = sinT(e.equipo).trim(); return q === k || q.includes(k) || k.includes(q); });
+    if (!l) return { nom, tit: [], sup: [] };
+    let tit = l.tit.slice(), sup = l.sup.slice();
+    listaT().forEach((t) => { const q = t.match(/^([LV])\s+(\d+)\s+\S+\s+cambio\s+(\d+)/i); if (!q || q[1].toUpperCase() !== lado) return; const i = tit.findIndex((j) => j.num === q[2]); if (i < 0) return; tit[i] = sup.find((j) => j.num === q[3]) || { num: q[3], nombre: "" }; sup = sup.filter((j) => j.num !== q[3]); });
+    return { nom, tit, sup };
+  };
+  const pintarVivo = () => {
+    const V2 = GV.querySelector("#vv"), a = accVivo, eq = { L: jugDe("L"), V: jugDe("V") }, min = minReloj();
+    const ACC = [["gol", "⚽ Gol"], ["amarilla", "🟨 Amarilla"], ["roja", "🟥 Roja"], ["cambio", "⇄ Cambio"]].filter(([k]) => manual || k !== "gol");
+    const EST = { PREVIA: "Previa", "1T": "1.er tiempo", ET: "Entretiempo", "2T": "2.º tiempo", FIN: "Final" };
+    const col = (lado) => { const e = eq[lado], entra = a.tipo === "cambio" && a.sale && a.lado === lado, L = entra ? e.sup : e.tit;
+      return `<div class="vv-eq${a.tipo === "cambio" && a.sale && a.lado !== lado ? " apagado" : ""}"><h5>${esc(e.nom || (lado === "L" ? "Local" : "Visitante"))}${entra ? ` · ¿quién entra por el ${esc(a.sale)}?` : ""}</h5><div class="vv-js">${L.map((j) => `<button class="vv-j" data-l="${lado}" data-n="${esc(j.num || "")}" data-nom="${esc(j.nombre || "")}"><b>${esc(j.num || "–")}</b>${esc(apeDe(j.nombre))}</button>`).join("")}</div>
+        <div class="vv-man"><input type="number" min="1" max="99" placeholder="N.º" data-l="${lado}"><button class="btn sec chico vv-ok" data-l="${lado}">${L.length ? "Otro número" : "Con el número"}</button>${a.tipo === "gol" ? `<button class="btn sec chico vv-sn" data-l="${lado}">Gol sin nombre</button>` : ""}</div>${L.length ? "" : `<small>${entra ? "No hay suplentes cargados" : "Sin alineación cargada"}: usá el número.</small>`}</div>`; };
+    V2.innerHTML = (manual ? `<div class="vv-top"><div class="vv-reloj"><small>${esc(EST[st.estado] || st.estado || "Previa")}</small><b>${/T$/.test(st.estado || "") && min ? esc(min) + "'" : "—"}</b><span><button data-r="-1">−1'</button><button data-r="1">+1'</button></span></div>
+        <div class="vv-marc"><span>${esc(eq.L.nom || "Local")}</span><b>${esc(st.goles_local || "0")} – ${esc(st.goles_visitante || "0")}</b><span>${esc(eq.V.nom || "Visitante")}</span></div></div>
+      <div class="vv-est">${[["1T", "▶ Arrancó el 1.er tiempo"], ["ET", "⏸ Entretiempo"], ["2T", "▶ Arrancó el 2.º tiempo"], ["FIN", "■ Final"]].map(([k, t]) => `<button class="btn ${st.estado === k ? "am" : "sec"}" data-est="${k}">${t}</button>`).join("")}</div>` : "") +
+      `<div class="vv-acc">${ACC.map(([k, t]) => `<button class="btn ${a.tipo === k ? "am" : "ce"}" data-acc="${k}">${t}</button>`).join("")}<label class="vv-min">Minuto<input type="text" id="vv-min" placeholder="${/T$/.test(st.estado || "") && min ? "reloj: " + min : "Ej.: 34"}"></label></div>
+      <div class="vv-ayuda">${!a.tipo ? "1) Tocá qué pasó. 2) Tocá al jugador. El minuto lo pone el reloj." : a.tipo === "cambio" ? (a.sale ? `Sale el ${esc(a.sale)}${a.saleNom ? " " + esc(apeDe(a.saleNom)) : ""}. Ahora tocá al que <b>entra</b>. <button class="enlace" id="vv-can">Cancelar</button>` : `Cambio: tocá al que <b>sale</b>. <button class="enlace" id="vv-can">Cancelar</button>`) : `${ACC.find(([k]) => k === a.tipo)[1]}: tocá al jugador. <button class="enlace" id="vv-can">Cancelar</button>`}</div>
+      <div class="vv-eqs">${col("L")}${col("V")}</div>`;
+    const minuto = () => { const x = V2.querySelector("#vv-min").value.trim().replace(/'/g, "") || (/T$/.test(st.estado || "") ? minReloj() : ""); if (!/^\d{1,3}(\+\d{1,2})?$/.test(x)) { aviso("Poné el minuto: el reloj del partido no está andando", true); return ""; } return x; };
+    const reg = (lado, num, nombre) => {
+      if (!a.tipo) { aviso("Primero tocá qué pasó: gol, tarjeta o cambio", true); return; }
+      const quien = (num ? num + " " : "") + apeDe(nombre), eqN = eq[lado].nom || (lado === "L" ? "local" : "visitante");
+      if (a.tipo === "cambio" && !a.sale) { if (!num) { aviso("Ese jugador no tiene número: usá el número", true); return; } accVivo = { tipo: "cambio", lado, sale: num, saleNom: nombre }; pintarVivo(); return; }
+      const mi = minuto(); if (!mi) return;
+      if (a.tipo === "gol") { const c = { incidencias: ((st.incidencias || "").trim() ? st.incidencias.trim() + "; " : "") + `${lado} ${mi} ${nombre || ""}`.trim() }; const k = lado === "L" ? "goles_local" : "goles_visitante"; c[k] = String((+st[k] || 0) + 1);
+        accVivo = {}; aplicar(c); aviso(`⚽ ${mi}' Gol de ${eqN}${nombre ? ": " + apeDe(nombre) : ""}`); return; }
+      if (a.tipo === "cambio") { if (lado !== a.lado) { aviso("El que entra tiene que ser del mismo equipo", true); return; } if (!num) { aviso("Falta el número del que entra", true); return; } if (num === a.sale) { aviso("Es el mismo jugador", true); return; } if (eq[lado].tit.some((j) => j.num === num)) { aviso("El " + num + " ya está en cancha", true); return; }
+        const t = listaT().concat(`${lado} ${a.sale} ${mi} cambio ${num}`).join("; "), sale = a.sale; accVivo = {}; aplicar({ tarjetas: t }); aviso(`⇄ ${mi}' ${eqN}: entra ${quien}, sale ${sale}`); return; }
+      if (!num) { aviso("Ese jugador no tiene número cargado: usá el número", true); return; }
+      const tipo = a.tipo; accVivo = {}; aplicar({ tarjetas: listaT().concat(`${lado} ${num} ${mi} ${tipo}`).join("; ") }); aviso(`${tipo === "roja" ? "🟥" : "🟨"} ${mi}' ${eqN}: ${quien}`);
+    };
+    V2.querySelectorAll("[data-acc]").forEach((b) => (b.onclick = () => { accVivo = a.tipo === b.dataset.acc ? {} : { tipo: b.dataset.acc }; pintarVivo(); }));
+    V2.querySelectorAll(".vv-j").forEach((b) => (b.onclick = () => reg(b.dataset.l, b.dataset.n, b.dataset.nom)));
+    V2.querySelectorAll(".vv-ok").forEach((b) => (b.onclick = () => { const n = V2.querySelector(`.vv-man input[data-l="${b.dataset.l}"]`).value.trim(); if (!/^\d{1,2}$/.test(n)) { aviso("Poné el número de camiseta", true); return; } const e = eq[b.dataset.l], j = e.tit.concat(e.sup).find((x) => x.num === n); reg(b.dataset.l, n, j ? j.nombre : ""); }));
+    V2.querySelectorAll(".vv-sn").forEach((b) => (b.onclick = () => reg(b.dataset.l, "", "")));
+    const can = V2.querySelector("#vv-can"); if (can) can.onclick = () => { accVivo = {}; pintarVivo(); };
+    V2.querySelectorAll("[data-est]").forEach((b) => (b.onclick = () => { const o = F.querySelector(`[data-e="${b.dataset.est}"]`); if (o) o.click(); }));
+    V2.querySelectorAll("[data-r]").forEach((b) => (b.onclick = () => { const o = F.querySelector(`.reloj-aj [data-aj="${b.dataset.r}"]`); if (o) o.click(); }));
+  };
+  pintarVivo(); clearInterval(window.__vivoT); window.__vivoT = setInterval(() => { if (subPartido === "vivo" && !accVivo.tipo && document.body.contains(GV) && document.activeElement.tagName !== "INPUT") pintarVivo(); }, 20000);
+  F.insertBefore(GV, F.querySelector(".grupo"));
+  // la pestaña en secciones: En vivo · Partido · Tarjetas y cambios · Alineaciones · Pantalla
+  const SECC = [["vivo", "🔴 En vivo"], ["partido", "⚽ Partido"], ["sucesos", "🟨 Tarjetas y cambios"], ["alin", "👥 Alineaciones"], ["pantalla", "🖥 Pantalla"]];
+  const secDe = (g) => { const t = sinT((g.querySelector(":scope > b") || {}).textContent || ""); return /^en vivo/.test(t) ? "vivo" : /pantalla/.test(t) ? "pantalla" : /tarjeta|sustituc/.test(t) ? "sucesos" : "partido"; };
   F.querySelectorAll(":scope > .grupo").forEach((g) => (g.dataset.sec = secDe(g)));
-  const barra = h(`<div class="pv-tabs">${SECC.map(([k, t]) => `<button class="chip" data-s="${k}">${t}</button>`).join("")}<span id="pv-estado" class="pv-estado ok">Se guarda solo</span></div>`);
+  const barra = h(`<div class="pv-tabs">${SECC.map(([k, t]) => `<button class="chip" data-s="${k}">${t}</button>`).join("")}<span id="pv-estado" class="pv-estado ok">Se guarda solo</span><div class="pv-acc"><button class="btn sec chico" id="pv-des">↶ Deshacer lo último</button><button class="btn sec chico" id="pv-nuevo">🆕 Partido nuevo</button></div></div>`);
+  barra.querySelector("#pv-des").onclick = () => { const c = pilaPartido.pop(); if (!c) { aviso("No hay nada para deshacer"); return; } accVivo = {}; aplicar(c, true); aviso("Deshecho ✓"); };
+  barra.querySelector("#pv-nuevo").onclick = (e) => { const b = e.currentTarget; if (b.dataset.ok !== "1") { b.dataset.ok = "1"; b.textContent = "¿Borrar todo el partido? Tocá de nuevo"; setTimeout(() => { b.dataset.ok = ""; b.textContent = "🆕 Partido nuevo"; }, 5000); return; }
+    accVivo = {}; subPartido = "partido"; aplicar({ local: "", visitante: "", estadio: "", fase: "", goles_local: "", goles_visitante: "", incidencias: "", tarjetas: "", alineacion: "", estado: "PREVIA", inicio_tiempo: "", minuto: "" }); aviso("Partido nuevo: quedó todo en blanco y en Previa. Si fue sin querer, tocá «Deshacer»."); };
   F.insertBefore(barra, F.querySelector("h2").nextSibling);
   const mostrarSec = (k) => { subPartido = k; barra.querySelectorAll("[data-s]").forEach((b) => b.classList.toggle("on", b.dataset.s === k));
     F.querySelectorAll(":scope > .grupo").forEach((g) => (g.style.display = g.dataset.sec === k ? "" : "none")); FA.style.display = k === "alin" ? "" : "none";
@@ -1553,7 +1622,7 @@ VISTAS.partido = (m) => {
   refrescar();
 };
 let subPartido = "partido";
-let cambiosPend = {}, ultimoPartido = null;   // ultimoPartido: valores de antes del último botón (para Deshacer)
+let cambiosPend = {}, ultimoPartido = null, pilaPartido = [], accVivo = {};   // ultimoPartido: valores de antes del último botón (para Deshacer)
 // como conValores, pero suma las claves que todavía no tienen fila
 function conClaves(t, c) {
   const o = conValores(t, c), ca = cab(t), ik = ca.indexOf("clave"), iv = ca.indexOf("valor"), hay = new Set(o.slice(1).map((f) => (f[ik] || "").trim().toLowerCase()));
