@@ -264,6 +264,8 @@
   .temp { flex-direction:row !important; align-items:center; gap:8px; font-size:12px; } .temp select { width:auto; padding:5px 8px; font-size:12px; }
   .zg { display:flex; flex-wrap:wrap; gap:6px; align-items:center; } .zg select { flex:1; min-width:160px; padding:7px 8px; font-size:13px; }
   .ed-perfil { display:grid; grid-template-columns:repeat(auto-fill,minmax(190px,1fr)); gap:10px; } .acc .u-acc { gap:6px; flex-wrap:wrap; }
+  .fuentes textarea { font-size:13px; } .f-links { display:flex; flex-wrap:wrap; gap:6px; margin-top:6px; } .f-links a { font:800 12px var(--f); color:var(--celeste); background:var(--fondo); padding:5px 8px; text-decoration:none; }
+  .busca-f { display:block; margin:0 0 12px; } .busca-f input { width:100%; max-width:520px; }
   .cal { display:grid; grid-template-columns:repeat(7, minmax(0,1fr)); gap:4px; }
   .cal .dn { font:800 11px var(--f); letter-spacing:.1em; color:var(--gris); text-transform:uppercase; padding:4px; }
   .cal .d { background:#fff; outline:1px solid var(--linea); min-height:96px; padding:6px; display:flex; flex-direction:column; gap:4px; min-width:0; }
@@ -677,7 +679,7 @@ VISTAS.inicio = (m) => {
 };
 
 /* ---------- Noticias ---------- */
-const COLS_N = ["mostrar", "titular", "parrafo_1", "parrafo_2", "imagen", "credito_foto", "categoria"];
+const COLS_N = ["mostrar", "titular", "parrafo_1", "parrafo_2", "imagen", "credito_foto", "categoria", "fuentes"];
 function noticias() {
   const t = D.noticias; if (!t) return [];
   const c = cab(t);
@@ -768,7 +770,7 @@ VISTAS.noticias = (m) => {
   editorNoticia(m.querySelector("#ed"), m.querySelector("#vn"), n, todas);
 };
 /* ---------- Archivo de fotos: las ya usadas, para reciclar. Cada semana se decide cuál dejar y cuál borrar ---------- */
-let FOT = null, filtroF = "revisar";
+let FOT = null, filtroF = "revisar", buscaF = "";
 async function vistaFotos(m) {
   m.innerHTML = titulo("Noticias") + subNoticias() + `<div class="aviso">Cargando el archivo de fotos…</div>`;
   enlazarSubNoticias(m);
@@ -785,11 +787,14 @@ function contarFotos(m) {
 }
 function pintarFotos(m) {
   const sin = FOT.filter((f) => !f.decision), edita = puede("noticias");
-  const lista = filtroF === "revisar" ? sin : filtroF === "dejar" ? FOT.filter((f) => f.decision === "dejar") : filtroF === "comodines" ? FOT.filter((f) => f.comodin) : FOT;
+  const qF = sinT(buscaF.trim()), coincide = (f) => !qF || sinT(f.titular + " " + f.credito + " " + (f.comodin || "")).includes(qF);
+  const lista = (filtroF === "revisar" ? sin : filtroF === "dejar" ? FOT.filter((f) => f.decision === "dejar") : filtroF === "comodines" ? FOT.filter((f) => f.comodin) : FOT).filter(coincide);
   m.innerHTML = titulo("Noticias") + subNoticias() +
     `<div class="aviso">Estas fotos ya salieron en alguna noticia. Cuando llega una noticia sin foto, se pone sola: primero una del <b>mismo jugador o técnico</b>; si no hay, un <b>comodín</b> del tema (escribí en «Comodín para» los temas de esa foto, separados por coma: «Peñarol, Clausura», «Selección», «Básquetbol»). Si no hay nada, queda sin foto para que la pongas vos. Las que <b>borres</b> van a la papelera de Drive (30 días para recuperarlas). Los lunes te llega un mail si hay fotos sin revisar.</div>
     <div class="subtabs">${[["revisar", "Sin revisar (" + sin.length + ")"], ["dejar", "Para reutilizar (" + FOT.filter((f) => f.decision === "dejar").length + ")"], ["comodines", "Comodines (" + FOT.filter((f) => f.comodin).length + ")"], ["todas", "Todas (" + FOT.length + ")"]].map(([k, t]) => `<button class="chip${k === filtroF ? " on" : ""}" data-ff="${k}">${t}</button>`).join("")}</div>
+    <label class="busca-f"><input type="search" id="bf" placeholder="🔍 Buscar por comodín, jugador, club o autor" value="${esc(buscaF)}"></label>
     <div class="grilla-fotos" id="gf"></div>`;
+  const bf = m.querySelector("#bf"); bf.oninput = debounce(() => { buscaF = bf.value; pintarFotos(m); const n = m.querySelector("#bf"); n.focus(); n.setSelectionRange(n.value.length, n.value.length); }, 300);
   enlazarSubNoticias(m);
   m.querySelectorAll("[data-ff]").forEach((b) => (b.onclick = () => { filtroF = b.dataset.ff; pintarFotos(m); }));
   const G = m.querySelector("#gf");
@@ -899,6 +904,15 @@ function editorNoticia(E, V, n, todas) {
   inCat.oninput = () => { st.categoria = inCat.value; mandar(); }; inCred.oninput = () => { st.credito_foto = inCred.value; mandar(); };
   inCat.onchange = () => autoG("categoria"); inCred.onchange = () => autoG("credito_foto");
   E.appendChild(fila2);
+  // fuentes consultadas: mínimo dos, con link, para poder leerlas
+  const urlsDe = (t) => String(t || "").split(/\n|\s+(?=https?:)/).map((x) => x.trim()).filter((x) => /^https?:\/\/\S+\.\S+/.test(x.replace(/^.*?(https?:)/, "$1")));
+  const gF = h(`<div class="lbl fuentes"><div class="lbl-fila"><span>Fuentes consultadas (mínimo 2, con link)</span><span class="contador"></span></div>
+    <textarea rows="3" placeholder="Un link por línea. Ej.:&#10;https://www.ovaciondigital.com.uy/…&#10;https://www.elpais.com.uy/…">${esc(st.fuentes || "")}</textarea><div class="f-links"></div></div>`);
+  const fTx = gF.querySelector("textarea"), fCnt = gF.querySelector(".contador"), fL = gF.querySelector(".f-links");
+  const pintarF = () => { const u = urlsDe(st.fuentes); fCnt.textContent = u.length + (u.length === 1 ? " fuente" : " fuentes"); fCnt.style.color = u.length >= 2 ? "var(--verde)" : "var(--rojo)";
+    fL.innerHTML = u.map((x) => { const l = x.replace(/^.*?(https?:)/, "$1"); let d = l; try { d = new URL(l).hostname.replace(/^www\./, ""); } catch (e) {} return `<a href="${esc(l)}" target="_blank" rel="noopener">↗ ${esc(d)}</a>`; }).join(""); };
+  fTx.oninput = () => { st.fuentes = fTx.value; pintarF(); }; fTx.onchange = () => autoG("fuentes"); pintarF();
+  E.appendChild(gF);
   // foto: subir y encuadrar
   const g = h(`<div class="grupo"><b>Foto</b></div>`); E.appendChild(g);
   const editorFoto = encuadrador((url) => { fotoNueva = url; mandar(); });
@@ -913,16 +927,16 @@ function editorNoticia(E, V, n, todas) {
   };
   pintarActual();
   // elegir una foto ya usada (archivo de fotos), con su autor
-  const arch = h(`<div class="elegir-arch"><button type="button" class="btn sec chico">🗂 Elegir del archivo de fotos</button><div class="arch-caja" hidden><input type="text" placeholder="Buscar por jugador, club o autor…"><div class="arch-grilla"></div></div></div>`);
+  const arch = h(`<div class="elegir-arch"><button type="button" class="btn sec chico">🗂 Elegir del archivo de fotos</button><div class="arch-caja" hidden><input type="text" placeholder="Buscar por jugador, club, autor o comodín…"><div class="arch-grilla"></div></div></div>`);
   const archB = arch.querySelector("button"), archC = arch.querySelector(".arch-caja"), archQ = archC.querySelector("input"), archG = archC.querySelector(".arch-grilla");
   let ARCH = null;
   const pintarArch = () => {
     const norm = (t) => String(t || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
     const q = norm(archQ.value.trim());
-    const lista = (ARCH || []).filter((f) => !q || norm(f.titular + " " + f.credito).includes(q)).slice(0, 60);
+    const lista = (ARCH || []).filter((f) => !q || norm(f.titular + " " + f.credito + " " + (f.comodin || "")).includes(q)).slice(0, 60);
     archG.innerHTML = lista.length ? "" : `<div class="vacio">${ARCH ? "No hay fotos con esa búsqueda." : "Cargando…"}</div>`;
     lista.forEach((f) => {
-      const c = h(`<button type="button" class="arch-it" title="${esc(f.titular)}"><span class="ft" style="background-image:url('${img(f.imagen)}')"></span><small>${esc(f.credito || "sin autor")}</small></button>`);
+      const c = h(`<button type="button" class="arch-it" title="${esc(f.titular)}"><span class="ft" style="background-image:url('${img(f.imagen)}')"></span><small>${f.comodin ? "★ " + esc(f.comodin) + " · " : ""}${esc(f.credito || "sin autor")}</small></button>`);
       c.onclick = () => {
         st.imagen = f.imagen; fotoNueva = null;
         if (f.credito) { st.credito_foto = f.credito; inCred.value = f.credito; }
@@ -944,6 +958,7 @@ function editorNoticia(E, V, n, todas) {
   const pie = h(`<div class="pie"><button class="btn am">${puede("noticias") ? "Guardar" : "Mandar a aprobar"}</button>${puede("noticias") ? `<button class="btn sec">${esSi(st.mostrar) ? "Sacar del aire" : "Poner al aire"}</button>` : ""}</div>`);
   const [bG, bA] = pie.querySelectorAll("button");
   bG.onclick = async () => {
+    if (!st.fila && urlsDe(st.fuentes).length < 2) { aviso("Faltan fuentes: poné al menos dos links de donde salió la noticia", true); fTx.focus(); return; }
     bG.disabled = true; bG.textContent = "Guardando…";
     try {
       while (corriendoN) await new Promise((r) => setTimeout(r, 200));   // primero lo que quedó en la cola: puede correr las filas
