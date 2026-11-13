@@ -1433,11 +1433,11 @@ VISTAS.partido = (m) => {
     </div>`;
   const GA = h(`<div class="grupo"><b>Alineaciones</b>
     <div class="dos">${bloqueEq("l")}${bloqueEq("v")}</div>
-    <div class="botonera"><button class="btn ce" id="a-ia" data-q="tit">✨ Armar titulares</button><button class="btn ce" id="a-is" data-q="sup">✨ Armar suplentes</button><span id="a-cnt" class="ayuda" style="align-self:center"></span></div>
+    <div class="botonera"><button class="btn ce" id="a-ia" data-q="tit">✨ Armar titulares</button><button class="btn ce" id="a-is" data-q="sup">✨ Armar suplentes</button><button class="btn am" id="a-it" data-q="todo">✨ Armar todo el equipo</button><span id="a-cnt" class="ayuda" style="align-self:center"></span></div>
     <div id="a-grilla" class="grilla"></div>
     <details class="a-crudo"><summary>Ver como texto</summary><textarea id="a-txt" rows="5" placeholder="Peñarol (4-4-2): 1 Aguerre, 3 Nández, 10 Fernández… | Placa del club | Suplentes: 25 Silva, …"></textarea></details>
     <div class="botonera"><button class="btn am" id="a-ok">Guardar alineación</button><button class="btn sec chico" id="a-no">Borrar</button></div>
-    <span class="ayuda">Para cada equipo: pegá el texto de titulares y suplentes, sumá las imágenes que tengas y, si querés, elegí la formación. Titulares y suplentes se arman por separado, en el momento que salga cada uno: «Armar titulares» no toca los suplentes y «Armar suplentes» no toca los titulares. El armado busca a cada jugador en el plantel de Transfermarkt y le pone el número. Si hay diferencias, manda la placa del club, después Flashscore, después el texto y por último Transfermarkt; te avisa cuáles. Revisá el resultado y tocá «Guardar alineación». En las copas y la Selección sale sola de ESPN.</span></div>`);
+    <span class="ayuda">Para cada equipo: pegá el texto de titulares y suplentes, sumá las imágenes que tengas y, si querés, elegí la formación. «Armar titulares» arma solo los titulares y deja los suplentes como estaban; «Armar suplentes» al revés; «Armar todo el equipo» arma las dos cosas juntas (lo que esté vacío no se toca). El armado busca a cada jugador en el plantel de Transfermarkt y le pone el número. Si hay diferencias, manda la placa del club, después Flashscore, después el texto y por último Transfermarkt; te avisa cuáles. Revisá el resultado y tocá «Guardar alineación». En las copas y la Selección sale sola de ESPN.</span></div>`);
   const aTxt = GA.querySelector("#a-txt"); aTxt.value = st.alineacion || "";
   const guardarA = async (v) => { apilar({ alineacion: st.alineacion || "" }); const c = { alineacion: v }; st.alineacion = v; cambios.alineacion = v; aTxt.value = v; pintarGrilla(); refrescar(); try { await guardar("guardarClaves", "partido_vivo", c); } catch (e) {} };
   // grilla: una casilla por jugador (número y nombre) para corregir rápido; cada cambio rearma el texto
@@ -1600,36 +1600,45 @@ VISTAS.partido = (m) => {
     } catch (e) { return ""; }
   };
   // dos armados separados: «Armar titulares» usa solo lo de titulares (y deja los suplentes que ya había); «Armar suplentes» usa solo lo de suplentes (y deja los titulares, o los arma solos si todavía no hay)
+  // tres armados: solo titulares, solo suplentes o todo el equipo. Lo que no se manda NUNCA se pisa: el resultado se une con lo que ya estaba
   const armar = async (ev) => {
     const b = ev.currentTarget, q = b.dataset.q, datos = {}, eqDe = (l) => sinT(String(l).split(/[:(]/)[0].trim());
     const igual = (a, c) => a && c && (a === c || a.includes(c) || c.includes(a));
     const previaDe = (nom) => aTxt.value.split("\n").find((l) => l.trim() && esLinea(l) && igual(eqDe(l), sinT(nom))) || "";
     for (const k of ["l", "v"]) {
-      const nom = eqs[k].querySelector(".a-nom").value.trim(), tx = eqs[k].querySelector(".a-tx").value.trim(), sup = eqs[k].querySelector(".a-sup").value.trim();
-      const hay = q === "tit" ? !!(tx || imgs[k].length) : !!(sup || imgs[k + "s"].length), quien = k === "l" ? "local" : "visitante";
-      if (hay && !nom) { aviso("Poné el nombre del " + quien, true); return; }
+      const nom = eqs[k].querySelector(".a-nom").value.trim(), tx = eqs[k].querySelector(".a-tx").value.trim(), sup = eqs[k].querySelector(".a-sup").value.trim(), quien = k === "l" ? "local" : "visitante";
+      const hayT = !!(tx || imgs[k].length), hayS = !!(sup || imgs[k + "s"].length);
+      const useT = (q === "tit" || q === "todo") && hayT, useS = (q === "sup" || q === "todo") && hayS;
+      if ((useT || useS) && !nom) { aviso("Poné el nombre del " + quien, true); return; }
       const previa = nom ? previaDe(nom) : "";
-      datos[quien] = !hay ? { nombre: "" } : q === "sup"
-        ? { nombre: nom, soloSup: true, previa: previa || nom + ":", sup, texto: "", formacion: forma[k], imgs: [], imgsSup: [], plantel: "" }
-        : { nombre: nom, texto: tx, formacion: forma[k], imgs: [], imgsSup: [], plantel: "", previa, soloTit: true };
+      datos[quien] = !useT && !useS ? { nombre: "" } : useT
+        ? { nombre: nom, texto: tx + (useS && sup ? "\nSuplentes: " + sup : ""), formacion: forma[k], imgs: [], imgsSup: [], plantel: "", useT, useS, previa, k }
+        : { nombre: nom, soloSup: true, previa: previa || nom + ":", sup, texto: "", formacion: forma[k], imgs: [], imgsSup: [], plantel: "", useT, useS, k };
     }
-    if (!datos.local.nombre && !datos.visitante.nombre) { aviso(q === "tit" ? "Pegá el texto o las imágenes de los titulares de al menos un equipo" : "Pegá el texto o las imágenes de los suplentes de al menos un equipo", true); return; }
+    if (!datos.local.nombre && !datos.visitante.nombre) { aviso(q === "tit" ? "Pegá el texto o las imágenes de los TITULARES de al menos un equipo" : q === "sup" ? "Pegá el texto o las imágenes de los SUPLENTES de al menos un equipo" : "Pegá titulares o suplentes de al menos un equipo", true); return; }
     b.disabled = true; const t0 = b.textContent; b.textContent = "Armando…";
     try {
-      for (const k of ["l", "v"]) { const d = datos[k === "l" ? "local" : "visitante"]; if (!d.nombre) continue;
-        if (q === "tit") d.imgs = await Promise.all(imgs[k].map(achicar)); else d.imgsSup = await Promise.all(imgs[k + "s"].map(achicar)); d.plantel = await plantelDe(d.nombre, k); }
-      const r = await srv("armarEquipos", datos);
-      r.forEach((x) => { const d = datos[x.lado], vieja = d.previa && d.soloTit ? (d.previa.match(/\|\s*Suplentes:.*$/i) || [""])[0] : "";   // solo titulares: quedan los suplentes de antes
-        if (vieja && !/\|\s*Suplentes:/i.test(x.linea)) x.linea += " " + vieja; });
-      const nuevas = r.map((x) => x.linea), quedan = aTxt.value.split("\n").filter((l) => l.trim() && esLinea(l) && !nuevas.some((n) => igual(eqDe(n), eqDe(l))));
-      aTxt.value = quedan.concat(nuevas).join("\n"); pintarGrilla();
-      const notas = r.map((x) => datos[x.lado].nombre + ": " + (q === "tit" && x.n < 11 ? x.n + " titulares. " : "") + (x.nota || "sin observaciones"));
-      const ojo = r.some((x) => (q === "tit" && x.n < 11) || /difer|no coincid|duda|distint|no está/i.test(x.nota || ""));
+      for (const lado of ["local", "visitante"]) { const d = datos[lado]; if (!d.nombre) continue;
+        if (d.useT) d.imgs = await Promise.all(imgs[d.k].map(achicar)); if (d.useS) d.imgsSup = await Promise.all(imgs[d.k + "s"].map(achicar)); d.plantel = await plantelDe(d.nombre, d.k); }
+      const r = await srv("armarEquipos", datos), notas = [];
+      const finales = r.map((x) => {
+        const d = datos[x.lado], nueva = leerLinea(x.linea) || { tit: [], sup: [], forma: "", fuente: "" }, prev = d.previa && d.previa.includes(":") ? leerLinea(d.previa) : null;
+        const tit = d.useT ? nueva.tit : prev && prev.tit.length ? prev.tit : nueva.tit;
+        const sup = d.useS ? nueva.sup : prev && prev.sup.length ? prev.sup : nueva.sup;
+        const forma = d.formacion || (d.useT ? nueva.forma || (prev && prev.forma) : (prev && prev.forma) || nueva.forma) || "";
+        const lin = armarLinea({ equipo: d.nombre, forma, tit: tit.slice(0, 11), sup: tit.slice(11).concat(sup), fuente: nueva.fuente || (prev && prev.fuente) || "" });   // siempre con el nombre escrito: no quedan dos líneas del mismo equipo
+        notas.push(d.nombre + ": " + (d.useT ? tit.length + (tit.length === 1 ? " titular" : " titulares") : "titulares sin tocar") + " · " + (d.useS ? sup.length + (sup.length === 1 ? " suplente" : " suplentes") : "suplentes sin tocar") + (x.nota && /difer|no está|no disponible/i.test(x.nota) ? " · " + x.nota.replace(/^.*?(diferencias:)/, "$1") : ""));
+        return { lin, d, ok: (!d.useT || tit.length === 11) && (!d.useS || sup.length > 0) };
+      });
+      const quedan = aTxt.value.split("\n").filter((l) => l.trim() && esLinea(l) && !finales.some((f) => igual(eqDe(l), sinT(f.d.nombre))));
+      aTxt.value = quedan.concat(finales.map((f) => f.lin)).join("\n"); pintarGrilla();
+      const ojo = finales.some((f) => !f.ok) || /difer|no está/i.test(notas.join(" "));
       aviso((ojo ? "Revisá antes de guardar · " : "Listo ✓ Revisalo y tocá «Guardar alineación» · ") + notas.join(" · "), ojo);
       grilla.scrollIntoView({ behavior: "smooth", block: "start" });
     } catch (e) { aviso(e.message || String(e), true); }
     b.disabled = false; b.textContent = t0;
   };
+  GA.querySelector("#a-it").onclick = armar;
   GA.querySelector("#a-ia").onclick = armar; GA.querySelector("#a-is").onclick = armar;
   FA.appendChild(GA);
   // ---- modo En vivo: lo que se toca durante el partido, en botones grandes. Se elige qué pasó y se toca al jugador; el minuto lo pone el reloj ----
