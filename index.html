@@ -493,6 +493,7 @@ async function guardar(fn, ...args) {
 const esc = (s) => String(s == null ? "" : s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const rojoHTML = (s) => esc(s).replace(/\*\*(.+?)\*\*/g, "<em>$1</em>").replace(/\*(.+?)\*/g, "<em>$1</em>");
 const sinT = (s) => String(s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+const nEq = (s) => sinT(s).replace(/[()]/g, " ").replace(/\s+/g, " ").trim();   // nombre de equipo para comparar: «Racing (Montevideo)» = «Racing Montevideo»
 const esSi = (v) => /^(si|sí|s|x|1|true|verdadero|yes)$/i.test(String(v || "").trim());
 function img(u) {
   if (!u) return "";
@@ -1441,7 +1442,8 @@ VISTAS.partido = (m) => {
   const aTxt = GA.querySelector("#a-txt"); aTxt.value = st.alineacion || "";
   const guardarA = async (v) => { apilar({ alineacion: st.alineacion || "" }); const c = { alineacion: v }; st.alineacion = v; cambios.alineacion = v; aTxt.value = v; pintarGrilla(); refrescar(); try { await guardar("guardarClaves", "partido_vivo", c); } catch (e) {} };
   // grilla: una casilla por jugador (número y nombre) para corregir rápido; cada cambio rearma el texto
-  const leerLinea = (l) => { const m = l.match(/^([^:(]+?)\s*(?:\(([^)]*)\))?\s*:\s*([^|]*)(?:\|(.*))?$/); if (!m) return null;
+  const leerLinea = (l) => { l = String(l).replace(/^([^:]*?)\s*\(([^)]*[A-Za-zÁÉÍÓÚáéíóúñÑ][^)]*)\)/, "$1 $2");   // «Racing (Montevideo)»: el paréntesis es parte del nombre, no la formación
+    const m = l.match(/^([^:(]+?)\s*(?:\(([^)]*)\))?\s*:\s*([^|]*)(?:\|(.*))?$/); if (!m) return null;
     const partes = (m[4] || "").split("|").map((x) => x.trim()), sup = (partes.find((x) => /^suplentes\s*:/i.test(x)) || "").replace(/^suplentes\s*:\s*/i, "");
     const jug = (t) => t.split(",").map((x) => x.trim()).filter(Boolean).map((x) => { const q = x.match(/^(\d{1,2})\.?\s+(.*)$/); return q ? { num: q[1], nombre: q[2] } : { num: "", nombre: x }; });
     return { equipo: m[1].trim(), forma: (m[2] || "").trim(), tit: jug(m[3]), sup: jug(sup), fuente: partes.find((x) => x && !/^suplentes\s*:/i.test(x)) || "" }; };
@@ -1568,8 +1570,8 @@ VISTAS.partido = (m) => {
   contar();
   // alineaciones viejas: las de equipos que no juegan este partido se borran solas (quedaban, por ejemplo, las de Nacional al cambiar de partido)
   const limpiarViejas = (a, b) => {
-    const ok = [a, b].map((x) => sinT(x || "").trim()).filter(Boolean); if (ok.length < 2) return;
-    const lineas = (st.alineacion || "").split("\n").filter((l) => l.trim()), juega = (l) => { const e = sinT(String(l).split(/[:(]/)[0]).trim(); return ok.some((x) => e && (e === x || e.includes(x) || x.includes(e))); };
+    const ok = [a, b].map((x) => nEq(x || "")).filter(Boolean); if (ok.length < 2) return;
+    const lineas = (st.alineacion || "").split("\n").filter((l) => l.trim()), juega = (l) => { const e = nEq(String(l).replace(/^([^:]*?)\s*\(([^)]*[A-Za-zÁÉÍÓÚáéíóúñÑ][^)]*)\)/, "$1 $2").split(/[:(]/)[0]); return ok.some((x) => e && (e === x || e.includes(x) || x.includes(e))); };
     const quedan = lineas.filter(juega); if (quedan.length === lineas.length) return;
     const fuera = lineas.filter((l) => !juega(l)).map((l) => String(l).split(/[:(]/)[0].trim());
     guardarA(quedan.join("\n")); aviso("Saqué la alineación vieja de " + fuera.join(" y ") + ": no juega este partido");
@@ -1602,11 +1604,11 @@ VISTAS.partido = (m) => {
   // dos armados separados: «Armar titulares» usa solo lo de titulares (y deja los suplentes que ya había); «Armar suplentes» usa solo lo de suplentes (y deja los titulares, o los arma solos si todavía no hay)
   // tres armados: solo titulares, solo suplentes o todo el equipo. Lo que no se manda NUNCA se pisa: el resultado se une con lo que ya estaba
   const armar = async (ev) => {
-    const b = ev.currentTarget, q = b.dataset.q, datos = {}, eqDe = (l) => sinT(String(l).split(/[:(]/)[0].trim());
+    const b = ev.currentTarget, q = b.dataset.q, datos = {}, eqDe = (l) => nEq(String(l).replace(/^([^:]*?)\s*\(([^)]*[A-Za-zÁÉÍÓÚáéíóúñÑ][^)]*)\)/, "$1 $2").split(/[:(]/)[0]);
     const igual = (a, c) => a && c && (a === c || a.includes(c) || c.includes(a));
-    const previaDe = (nom) => aTxt.value.split("\n").find((l) => l.trim() && esLinea(l) && igual(eqDe(l), sinT(nom))) || "";
+    const previaDe = (nom) => aTxt.value.split("\n").find((l) => l.trim() && esLinea(l) && igual(eqDe(l), nEq(nom))) || "";
     for (const k of ["l", "v"]) {
-      const nom = eqs[k].querySelector(".a-nom").value.trim(), tx = eqs[k].querySelector(".a-tx").value.trim(), sup = eqs[k].querySelector(".a-sup").value.trim(), quien = k === "l" ? "local" : "visitante";
+      const nom = eqs[k].querySelector(".a-nom").value.trim().replace(/\s*\(([^)]*)\)/g, " $1").replace(/\s+/g, " ").trim(), tx = eqs[k].querySelector(".a-tx").value.trim(), sup = eqs[k].querySelector(".a-sup").value.trim(), quien = k === "l" ? "local" : "visitante";
       const hayT = !!(tx || imgs[k].length), hayS = !!(sup || imgs[k + "s"].length);
       const useT = (q === "tit" || q === "todo") && hayT, useS = (q === "sup" || q === "todo") && hayS;
       if ((useT || useS) && !nom) { aviso("Poné el nombre del " + quien, true); return; }
@@ -1630,7 +1632,7 @@ VISTAS.partido = (m) => {
         notas.push(d.nombre + ": " + (d.useT ? tit.length + (tit.length === 1 ? " titular" : " titulares") : "titulares sin tocar") + " · " + (d.useS ? sup.length + (sup.length === 1 ? " suplente" : " suplentes") : "suplentes sin tocar") + (x.nota && /difer|no está|no disponible/i.test(x.nota) ? " · " + x.nota.replace(/^.*?(diferencias:)/, "$1") : ""));
         return { lin, d, ok: (!d.useT || tit.length === 11) && (!d.useS || sup.length > 0) };
       });
-      const quedan = aTxt.value.split("\n").filter((l) => l.trim() && esLinea(l) && !finales.some((f) => igual(eqDe(l), sinT(f.d.nombre))));
+      const quedan = aTxt.value.split("\n").filter((l) => l.trim() && esLinea(l) && !finales.some((f) => igual(eqDe(l), nEq(f.d.nombre))));
       aTxt.value = quedan.concat(finales.map((f) => f.lin)).join("\n"); pintarGrilla();
       const ojo = finales.some((f) => !f.ok) || /difer|no está/i.test(notas.join(" "));
       aviso((ojo ? "Revisá antes de guardar · " : "Listo ✓ Revisalo y tocá «Guardar alineación» · ") + notas.join(" · "), ojo);
@@ -1645,8 +1647,8 @@ VISTAS.partido = (m) => {
   const GV = h(`<div class="grupo vivo"><b>En vivo</b><div id="vv"></div></div>`);
   const apeDe = (n) => { const w = String(n || "").trim().split(/\s+/); return w.length < 2 ? w[0] || "" : w.slice(1).join(" "); };
   const jugDe = (lado) => {   // los que están en cancha y el banco, con los cambios ya hechos
-    const nom = (lado === "L" ? (manual ? st.local : nl.value) : (manual ? st.visitante : nv.value)) || "", k = sinT(nom).trim();
-    const l = k && (st.alineacion || "").split("\n").map((x) => x.trim()).filter(Boolean).map(leerLinea).filter(Boolean).find((e) => { const q = sinT(e.equipo).trim(); return q === k || q.includes(k) || k.includes(q); });
+    const nom = (lado === "L" ? (manual ? st.local : nl.value) : (manual ? st.visitante : nv.value)) || "", k = nEq(nom);
+    const l = k && (st.alineacion || "").split("\n").map((x) => x.trim()).filter(Boolean).map(leerLinea).filter(Boolean).find((e) => { const q = nEq(e.equipo); return q === k || q.includes(k) || k.includes(q); });
     if (!l) return { nom, tit: [], sup: [] };
     let tit = l.tit.slice(), sup = l.sup.slice();
     listaT().forEach((t) => { const q = t.match(/^([LV])\s+(\d+)\s+\S+\s+cambio\s+(\d+)/i); if (!q || q[1].toUpperCase() !== lado) return; const i = tit.findIndex((j) => j.num === q[2]); if (i < 0) return; tit[i] = sup.find((j) => j.num === q[3]) || { num: q[3], nombre: "" }; sup = sup.filter((j) => j.num !== q[3]); });
