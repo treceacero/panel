@@ -1437,9 +1437,11 @@ VISTAS.partido = (m) => {
     <div class="botonera"><button class="btn ce" id="a-ia" data-q="tit">✨ Armar titulares</button><button class="btn ce" id="a-is" data-q="sup">✨ Armar suplentes</button><button class="btn am" id="a-it" data-q="todo">✨ Armar todo el equipo</button><span id="a-cnt" class="ayuda" style="align-self:center"></span></div>
     <div id="a-grilla" class="grilla"></div>
     <details class="a-crudo"><summary>Ver como texto</summary><textarea id="a-txt" rows="5" placeholder="Peñarol (4-4-2): 1 Aguerre, 3 Nández, 10 Fernández… | Placa del club | Suplentes: 25 Silva, …"></textarea></details>
-    <div class="botonera"><button class="btn am" id="a-ok">Guardar alineación</button><button class="btn sec chico" id="a-no">Borrar</button></div>
+    <div class="botonera"><button class="btn sec" id="a-ok">Guardar ahora</button><span class="ayuda" style="align-self:center">Se guarda solo: lo ven todos los dispositivos.</span><button class="btn sec chico" id="a-no">Borrar</button></div>
     <span class="ayuda">Para cada equipo: pegá el texto de titulares y suplentes, sumá las imágenes que tengas y, si querés, elegí la formación. «Armar titulares» arma solo los titulares y deja los suplentes como estaban; «Armar suplentes» al revés; «Armar todo el equipo» arma las dos cosas juntas (lo que esté vacío no se toca). El armado busca a cada jugador en el plantel de Transfermarkt y le pone el número. Si hay diferencias, manda la placa del club, después Flashscore, después el texto y por último Transfermarkt; te avisa cuáles. Revisá el resultado y tocá «Guardar alineación». En las copas y la Selección sale sola de ESPN.</span></div>`);
   const aTxt = GA.querySelector("#a-txt"); aTxt.value = st.alineacion || "";
+  const guardarASolo = debounce((v) => { if ((st.alineacion || "") === v) return; apilar({ alineacion: st.alineacion || "" }); const c = { alineacion: v }; st.alineacion = v; D.partido = conClaves(D.partido, c); enCola("guardarClaves", ["partido_vivo", c]); sellar(); refrescar();
+    const e = document.getElementById("pv-estado"); if (e) { e.textContent = "✓ Alineación guardada " + new Date().toTimeString().slice(0, 5); e.classList.add("ok"); } }, 1200);   // sin redibujar: se puede seguir escribiendo
   const guardarA = async (v) => { apilar({ alineacion: st.alineacion || "" }); const c = { alineacion: v }; st.alineacion = v; cambios.alineacion = v; aTxt.value = v; pintarGrilla(); refrescar(); try { await guardar("guardarClaves", "partido_vivo", c); } catch (e) {} };
   // grilla: una casilla por jugador (número y nombre) para corregir rápido; cada cambio rearma el texto
   const leerLinea = (l) => { l = String(l).replace(/^([^:]*?)\s*\(([^)]*[A-Za-zÁÉÍÓÚáéíóúñÑ][^)]*)\)/, "$1 $2");   // «Racing (Montevideo)»: el paréntesis es parte del nombre, no la formación
@@ -1473,7 +1475,7 @@ VISTAS.partido = (m) => {
   function pintarGrilla() {
     const eqsL = aTxt.value.split("\n").map((l) => l.trim()).filter(Boolean).map(leerLinea).filter(Boolean);
     grilla.innerHTML = eqsL.length ? "" : `<div class="ayuda">Acá aparece cada equipo con sus jugadores para corregir. Tocá «Armar titulares» o «Armar suplentes».</div>`;
-    const volcar = () => { aTxt.value = eqsL.map(armarLinea).join("\n"); };
+    const volcar = () => { aTxt.value = eqsL.map(armarLinea).join("\n"); guardarASolo(aTxt.value); };
     // nunca más de 11 titulares: los que sobran pasan al banco
     const sobran = eqsL.filter((e) => e.tit.filter((x) => x.nombre.trim() || x.num.trim()).length > 11);
     if (sobran.length) { sobran.forEach((e) => { const t = e.tit.filter((x) => x.nombre.trim() || x.num.trim()); e.sup = t.slice(11).concat(e.sup); e.tit = t.slice(0, 11); }); volcar(); aviso("Los titulares son 11: pasé a suplentes los que sobraban en " + sobran.map((e) => e.equipo).join(" y "), true); }
@@ -1577,10 +1579,25 @@ VISTAS.partido = (m) => {
     guardarA(quedan.join("\n")); aviso("Saqué la alineación vieja de " + fuera.join(" y ") + ": no juega este partido");
   };
   if (manual) limpiarViejas(st.local, st.visitante);
+  // si ESPN ya tiene la alineación (copas, Selección y a veces el Uruguayo), se copia acá para verla y corregirla; lo que ya está cargado no se toca
+  const traerAlinESPN = async (pa) => {
+    try {
+      const j = await (await fetch("https://site.api.espn.com/apis/site/v2/sports/soccer/" + pa.liga + "/summary?event=" + pa.espn)).json(), R = j.rosters || [];
+      const nomL = (n) => String(n || "").replace(/\s*\(([^)]*)\)/g, " $1").replace(/\s+/g, " ").trim(), actuales = (st.alineacion || "").split("\n").filter((l) => l.trim());
+      const tiene = (n) => actuales.some((l) => { const e = nEq(String(l).replace(/^([^:]*?)\s*\(([^)]*[A-Za-zÁÉÍÓÚáéíóúñÑ][^)]*)\)/, "$1 $2").split(/[:(]/)[0]), x = nEq(n); return e && (e === x || e.includes(x) || x.includes(e)); });
+      const nuevas = R.filter((t) => (t.roster || []).some((x) => x.starter) && t.team && !tiene(t.team.displayName)).map((t) => {
+        const jg = (x) => ((x.jersey ? x.jersey + " " : "") + ((x.athlete || {}).displayName || "")).replace(/[,|]/g, " ").trim();
+        const tit = t.roster.filter((x) => x.starter).sort((a, b) => (+a.formationPlace || 99) - (+b.formationPlace || 99)), sup = t.roster.filter((x) => !x.starter);
+        return nomL(t.team.displayName) + (t.formation ? " (" + t.formation + ")" : "") + ": " + tit.map(jg).join(", ") + " | ESPN" + (sup.length ? " | Suplentes: " + sup.map(jg).join(", ") : ""); });
+      if (!nuevas.length) return;
+      aTxt.value = actuales.concat(nuevas).join("\n"); pintarGrilla(); guardarASolo(aTxt.value);
+      aviso("Traje de ESPN la alineación de " + nuevas.map((l) => l.split(/[:(]/)[0].trim()).join(" y ") + ". Ya quedó guardada: corregila en la grilla si hace falta.");
+    } catch (e) {}
+  };
   let partidoA = null;
   if (!manual) partidosUruguayos(2).then((L) => {   // el partido de hoy (o el más cercano) para los nombres y el plantel
     const ahora = Date.now(); partidoA = L.sort((a, b) => Math.abs(new Date(a.fecha + "T" + a.hora) - ahora) - Math.abs(new Date(b.fecha + "T" + b.hora) - ahora))[0] || null;
-    if (partidoA) { if (!nl.value) nl.value = partidoA.local; if (!nv.value) nv.value = partidoA.visitante; limpiarViejas(partidoA.local, partidoA.visitante); try { pintarVivo(); } catch (e) {} }
+    if (partidoA) { if (!nl.value) nl.value = partidoA.local; if (!nv.value) nv.value = partidoA.visitante; limpiarViejas(partidoA.local, partidoA.visitante); try { pintarVivo(); } catch (e) {} traerAlinESPN(partidoA); }
     nl.placeholder = "Nombre del local";
   }).catch(() => {});
   const achicar = (f) => new Promise((ok, mal) => { const im = new Image(), u = URL.createObjectURL(f);
@@ -1633,9 +1650,9 @@ VISTAS.partido = (m) => {
         return { lin, d, ok: (!d.useT || tit.length === 11) && (!d.useS || sup.length > 0) };
       });
       const quedan = aTxt.value.split("\n").filter((l) => l.trim() && esLinea(l) && !finales.some((f) => igual(eqDe(l), nEq(f.d.nombre))));
-      aTxt.value = quedan.concat(finales.map((f) => f.lin)).join("\n"); pintarGrilla();
+      aTxt.value = quedan.concat(finales.map((f) => f.lin)).join("\n"); pintarGrilla(); guardarASolo(aTxt.value);
       const ojo = finales.some((f) => !f.ok) || /difer|no está/i.test(notas.join(" "));
-      aviso((ojo ? "Revisá antes de guardar · " : "Listo ✓ Revisalo y tocá «Guardar alineación» · ") + notas.join(" · "), ojo);
+      aviso((ojo ? "Revisá antes de guardar · " : "Listo ✓ Ya quedó guardado; revisalo en la grilla · ") + notas.join(" · "), ojo);
       grilla.scrollIntoView({ behavior: "smooth", block: "start" });
     } catch (e) { aviso(e.message || String(e), true); }
     b.disabled = false; b.textContent = t0;
