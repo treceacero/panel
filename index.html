@@ -118,6 +118,8 @@
   .arch-it small { font-size:10px; color:var(--gris); padding:4px 5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .escena { position:relative; height:330px; background:#222; overflow:hidden; touch-action:none; cursor:grab; }
   .escena img { position:absolute; left:0; top:0; transform-origin:0 0; user-select:none; -webkit-user-drag:none; pointer-events:none; }
+  .escena .fondo-r { position:absolute; top:0; pointer-events:none; }
+  .relleno { display:flex; flex-wrap:wrap; gap:6px; align-items:center; font:700 12px var(--f); color:var(--gris); } .relleno .chip { font-size:12px; padding:5px 9px; }
   .escena .marco-v { position:absolute; top:0; height:100%; outline:3px solid var(--amarillo); outline-offset:-3px; box-shadow:0 0 0 2000px rgba(10,6,40,.62); pointer-events:none; }
   .escena .mano { position:absolute; right:10px; bottom:10px; background:var(--amarillo); color:var(--azul); font:800 12px/1 var(--f); padding:7px 9px; pointer-events:none; }
   .escena.sin { display:flex; align-items:center; justify-content:center; color:#bbb; font-weight:700; cursor:default; border:3px dashed #555; }
@@ -266,6 +268,7 @@
   .ed-perfil { display:grid; grid-template-columns:repeat(auto-fill,minmax(190px,1fr)); gap:10px; } .acc .u-acc { gap:6px; flex-wrap:wrap; }
   .fuentes textarea { font-size:13px; } .f-links { display:flex; flex-wrap:wrap; gap:6px; margin-top:6px; } .f-links a { font:800 12px var(--f); color:var(--celeste); background:var(--fondo); padding:5px 8px; text-decoration:none; }
   .busca-f { display:block; margin:0 0 12px; } .busca-f input { width:100%; max-width:520px; }
+  .esc-guia { background:var(--fondo); padding:12px 16px; font:500 14px/1.45 var(--f); display:flex; flex-direction:column; gap:6px; margin-bottom:12px; } .esc-guia ol { margin:0; padding-left:20px; display:flex; flex-direction:column; gap:3px; }
   .cal { display:grid; grid-template-columns:repeat(7, minmax(0,1fr)); gap:4px; }
   .cal .dn { font:800 11px var(--f); letter-spacing:.1em; color:var(--gris); text-transform:uppercase; padding:4px; }
   .cal .d { background:#fff; outline:1px solid var(--linea); min-height:96px; padding:6px; display:flex; flex-direction:column; gap:4px; min-width:0; }
@@ -981,19 +984,30 @@ function editorNoticia(E, V, n, todas) {
 /* Encuadre de la foto: el recuadro amarillo es lo que sale en la tanda (vertical, 504 × 920) */
 function encuadrador(onCambio) {
   const RAZON = 504 / 920, SAL_W = 1008, SAL_H = 1840;
-  const el = h(`<div class="encuadre"><div class="escena sin" tabindex="0">Pegá la imagen (⌘V / Ctrl+V), arrastrala acá o elegí una foto</div><div class="zoom" style="display:none"><span>−</span><input type="range" min="1" max="4" step="0.01" value="1"><span>+</span></div><div class="pie"><label class="btn az chico" style="flex-direction:row">📷 Sacar foto<input type="file" accept="image/*" capture="environment" hidden></label><label class="btn sec chico" style="flex-direction:row">🖼 Elegir foto<input type="file" accept="image/*" hidden></label><span class="ayuda" style="color:var(--gris);font-size:12px;font-weight:600">Se guarda sola en Drive al tocar Guardar</span></div>
+  const el = h(`<div class="encuadre"><div class="escena sin" tabindex="0">Pegá la imagen (⌘V / Ctrl+V), arrastrala acá o elegí una foto</div><div class="zoom" style="display:none"><span>−</span><input type="range" min="0.3" max="4" step="0.01" value="1"><span>+</span></div><div class="relleno" style="display:none"><span>Si la achicás, el resto se rellena con:</span>${[["borrosa", "La misma foto, borrosa"], ["azul", "Azul"], ["negro", "Negro"], ["blanco", "Blanco"]].map(([k, t], i) => `<button type="button" class="chip${i ? "" : " on"}" data-r="${k}">${t}</button>`).join("")}</div><div class="pie"><label class="btn az chico" style="flex-direction:row">📷 Sacar foto<input type="file" accept="image/*" capture="environment" hidden></label><label class="btn sec chico" style="flex-direction:row">🖼 Elegir foto<input type="file" accept="image/*" hidden></label><span class="ayuda" style="color:var(--gris);font-size:12px;font-weight:600">Se guarda sola en Drive al tocar Guardar</span></div>
     <div class="desde-drive"><input type="text" placeholder="…o pegá el link de una foto de Drive"><button type="button" class="btn sec chico">Traer de Drive</button></div></div>`);
   const esc_ = el.querySelector(".escena"), zoom = el.querySelector(".zoom"), rango = zoom.querySelector("input"), files = el.querySelectorAll("input[type=file]");
-  let im = null, base = 1, x = 0, y = 0, mw = 0, mx = 0;
+  let im = null, base = 1, x = 0, y = 0, mw = 0, mx = 0, relleno = "borrosa";
+  const COL_R = { azul: "#180B5B", negro: "#000000", blanco: "#FFFFFF" };
+  const pintarFondo = () => { const f = esc_.querySelector(".fondo-r"); if (!f || !im) return; const { H } = marco(); f.style.cssText = `left:${mx}px;width:${mw}px;height:${H}px;` + (relleno === "borrosa" ? `background:#000 url("${im.src}") center/cover;filter:blur(14px) brightness(.7);` : `background:${COL_R[relleno]};`); };
+  el.querySelectorAll(".relleno .chip").forEach((b) => (b.onclick = () => { relleno = b.dataset.r; el.querySelectorAll(".relleno .chip").forEach((x) => x.classList.toggle("on", x === b)); pintarFondo(); exportar(); }));
   const marco = () => { const H = esc_.clientHeight; mw = H * RAZON; mx = (esc_.clientWidth - mw) / 2; return { H }; };
   function limitar() {
     const { H } = marco(), s = base * +rango.value, w = im.naturalWidth * s, hh = im.naturalHeight * s;
-    x = Math.min(mx, Math.max(mx + mw - w, x)); y = Math.min(0, Math.max(H - hh, y));
+    // más grande que el recuadro: no deja huecos; más chica: queda adentro del recuadro (lo que sobra se rellena)
+    x = w >= mw ? Math.min(mx, Math.max(mx + mw - w, x)) : Math.max(mx, Math.min(mx + mw - w, x));
+    y = hh >= H ? Math.min(0, Math.max(H - hh, y)) : Math.max(0, Math.min(H - hh, y));
     im.style.transform = `translate(${x}px,${y}px) scale(${s})`;
   }
   const exportar = debounce(() => {
-    const s = base * +rango.value, c = document.createElement("canvas"); c.width = SAL_W; c.height = SAL_H;
-    c.getContext("2d").drawImage(im, (mx - x) / s, (0 - y) / s, mw / s, esc_.clientHeight / s, 0, 0, SAL_W, SAL_H);
+    const s = base * +rango.value, c = document.createElement("canvas"), g = c.getContext("2d"), H = esc_.clientHeight, kx = SAL_W / mw, ky = SAL_H / H; c.width = SAL_W; c.height = SAL_H;
+    const w = im.naturalWidth * s, hh = im.naturalHeight * s;
+    if (w < mw - 0.5 || hh < H - 0.5) {   // la foto no llena el recuadro: primero el relleno
+      if (relleno === "borrosa") { const k = Math.max(SAL_W / im.naturalWidth, SAL_H / im.naturalHeight) * 1.15, bw = im.naturalWidth * k, bh = im.naturalHeight * k;
+        g.filter = "blur(40px) brightness(0.7)"; g.drawImage(im, (SAL_W - bw) / 2, (SAL_H - bh) / 2, bw, bh); g.filter = "none"; }
+      else { g.fillStyle = COL_R[relleno]; g.fillRect(0, 0, SAL_W, SAL_H); }
+    }
+    g.drawImage(im, (x - mx) * kx, y * ky, w * kx, hh * ky);
     onCambio(c.toDataURL("image/jpeg", 0.88));
   }, 200);
   function abrir(f) {
@@ -1041,12 +1055,12 @@ function encuadrador(onCambio) {
   ddIn.onkeydown = (e) => { if (e.key === "Enter") { e.preventDefault(); ddB.onclick(); } };
   function cargar(datos) {
     {
-      esc_.className = "escena"; esc_.innerHTML = `<img><div class="marco-v"></div><span class="mano">✥ Arrastrá para encuadrar · pellizcá para zoom</span>`;
+      esc_.className = "escena"; esc_.innerHTML = `<div class="fondo-r"></div><img><div class="marco-v"></div><span class="mano">✥ Arrastrá para encuadrar · pellizcá para zoom</span>`;
       im = esc_.querySelector("img"); im.onload = () => {
         const { H } = marco(); esc_.querySelector(".marco-v").style.cssText = `left:${mx}px;width:${mw}px`;
         base = Math.max(mw / im.naturalWidth, H / im.naturalHeight); rango.value = 1;
         x = mx + (mw - im.naturalWidth * base) / 2; y = (H - im.naturalHeight * base) * 0.3;
-        zoom.style.display = ""; limitar(); exportar();
+        zoom.style.display = ""; el.querySelector(".relleno").style.display = ""; pintarFondo(); limitar(); exportar();
       };
       im.src = datos;
     }
@@ -1064,7 +1078,7 @@ function encuadrador(onCambio) {
   });
   esc_.addEventListener("pointermove", (e) => {
     if (!dedos.has(e.pointerId)) return; dedos.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    if (pinza && dedos.size === 2) { rango.value = Math.min(4, Math.max(1, pinza.z * dist() / pinza.d)); rango.oninput(); return; }
+    if (pinza && dedos.size === 2) { rango.value = Math.min(4, Math.max(0.3, pinza.z * dist() / pinza.d)); rango.oninput(); return; }
     if (arr) { x = e.clientX - arr[0]; y = e.clientY - arr[1]; limitar(); }
   });
   const soltar = (e) => { dedos.delete(e.pointerId); if (dedos.size < 2) pinza = null; if (!dedos.size) { arr = null; esc_.style.cursor = ""; exportar(); } };
@@ -1807,8 +1821,15 @@ async function nombresEspanol(m) {
 }
 VISTAS.escudos = (m) => {
   m.innerHTML = titulo("Escudos") + `<div class="card form" id="fe"></div>`;
-  const F = m.querySelector("#fe"); F.innerHTML = `<h2><i style="background:var(--azul)"></i>Escudos propios</h2><div class="aviso">En «escudo» va un link de Drive, un link a una imagen o el nombre de un archivo de la carpeta escudos. Se ve al lado.</div>`;
-  const t = tablaEditable(F, D.escudos, ["equipo", "liga", "escudo", "otros_nombres", "nota"], { imagen: "escudo", titulos: { otros_nombres: "Otros nombres" } });
+  const F = m.querySelector("#fe"); F.innerHTML = `<h2><i style="background:var(--azul)"></i>Escudos propios</h2>
+    <div class="esc-guia"><p><b>¿Para qué sirve?</b> Las pantallas (ticker, tablas, partido en vivo) ponen el escudo de cada equipo <b>solas</b>: lo sacan de los escudos guardados del ticker o de ESPN. Esta lista es solo para <b>corregir o agregar</b> los que salen mal o no salen.</p>
+    <p><b>¿Cuándo la uso?</b> Cuando un equipo aparece sin escudo, con uno viejo o con uno equivocado. Lo que pongas acá <b>manda</b> sobre lo automático, en todas las pantallas.</p>
+    <ol><li><b>Equipo:</b> el nombre tal como aparece en pantalla (ej.: <i>Montevideo City Torque</i>).</li>
+    <li><b>Escudo:</b> pegá un link de Drive o de una imagen (mejor PNG con fondo transparente). Al lado ves cómo queda.</li>
+    <li><b>Otros nombres</b> (opcional): otras formas en que aparece el mismo equipo, separadas por coma (ej.: <i>MC Torque, Torque</i>). Así no hay que cargarlo dos veces.</li>
+    <li><b>Liga y Nota</b> son solo para ordenarte; no cambian nada en pantalla.</li></ol>
+    <p>Después tocá <b>Guardar escudos</b>. Los escudos que agregás desde Partido en vivo («Buscar», pegar o subir) también quedan acá.</p></div>`;
+  const t = tablaEditable(F, D.escudos, ["equipo", "liga", "escudo", "otros_nombres", "nota"], { imagen: "escudo", titulos: { equipo: "Equipo (como sale en pantalla)", escudo: "Escudo (link)", otros_nombres: "Otros nombres (opcional)", liga: "Liga (opcional)", nota: "Nota (opcional)" } });
   const p = h(`<div class="pie"><button class="btn am">Guardar escudos</button></div>`); p.firstChild.onclick = () => guardar("guardarTabla", "escudos", t.filas(), 5).then(recargar).catch(() => {}); F.appendChild(p);
 };
 
