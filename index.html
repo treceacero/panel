@@ -269,6 +269,7 @@
   .fuentes textarea { font-size:13px; } .f-links { display:flex; flex-wrap:wrap; gap:6px; margin-top:6px; } .f-links a { font:800 12px var(--f); color:var(--celeste); background:var(--fondo); padding:5px 8px; text-decoration:none; }
   .busca-f { display:block; margin:0 0 12px; } .busca-f input { width:100%; max-width:520px; }
   .esc-guia { background:var(--fondo); padding:12px 16px; font:500 14px/1.45 var(--f); display:flex; flex-direction:column; gap:6px; margin-bottom:12px; } .esc-guia ol { margin:0; padding-left:20px; display:flex; flex-direction:column; gap:3px; }
+  .foto-actual.pend { outline:3px solid var(--rojo); outline-offset:2px; }
   .cal { display:grid; grid-template-columns:repeat(7, minmax(0,1fr)); gap:4px; }
   .cal .dn { font:800 11px var(--f); letter-spacing:.1em; color:var(--gris); text-transform:uppercase; padding:4px; }
   .cal .d { background:#fff; outline:1px solid var(--linea); min-height:96px; padding:6px; display:flex; flex-direction:column; gap:4px; min-width:0; }
@@ -704,8 +705,10 @@ async function correrColaN() {
   if (corriendoN) return; corriendoN = true;
   while (colaN.length) {
     const [fn, args] = colaN[0];
-    try { await srv(fn, ...args); colaN.shift(); }
-    catch (e) {   // lo que seguía en la cola contaba con este cambio: se descarta y se vuelve a lo que dice la planilla
+    let ok = false, err = null;
+    for (let i = 0; i < 3 && !ok; i++) { try { if (i) { aviso("Reintentando el guardado…"); await new Promise((r) => setTimeout(r, 1500 * i)); } await srv(fn, ...args); ok = true; } catch (e) { err = e; if (/permiso|SESION|CLAVE|no encontr/i.test(e.message || "")) break; } }   // un corte de conexión no tira el cambio
+    if (ok) colaN.shift();
+    else { const e = err;   // lo que seguía en la cola contaba con este cambio: se descarta y se vuelve a lo que dice la planilla
       const n = colaN.length - 1; colaN.length = 0; corriendoN = false; FOT = null;
       aviso((e.message || String(e)) + (n ? ` · no se guardaron ${n} cambios más` : ""), true);
       try { await recargar(); } catch (x) {}
@@ -739,6 +742,7 @@ VISTAS.noticias = (m) => {
   lista.forEach((n, i) => {
     const it = h(`<div class="noti${elegidaN && elegidaN.fila === n.fila ? " on" : ""}"><span class="ft" style="${n.imagen ? `background-image:url('${img(n.imagen)}')` : ""}"></span><div><b>${rojoHTML(n.titular) || "<i>(sin titular)</i>"}</b><small>${n.imagen ? "Con foto" : "Sin foto"} · ${esSi(n.mostrar) ? "al aire" : pend(n) ? '<span class="tag-pend">PENDIENTE</span>' : "guardada"}${n.categoria ? " · " + esc(n.categoria) : ""}</small></div><div class="acc"></div></div>`);
     const acc = it.querySelector(".acc");
+    if ((borradoresN["f" + n.fila] || {}).fotoNueva) it.querySelector("small").insertAdjacentHTML("afterbegin", '<span class="tag-pend">FOTO SIN GUARDAR</span> ');
     if (pend(n) && puede("noticias")) {
       const bAp = h(`<button class="btn ok chico">✓ Aprobar</button>`);
       bAp.onclick = (e) => { e.stopPropagation(); rapido("aprobarNoticia", [n.fila, n.titular], () => ponerN(n.fila, "mostrar", "SI")); };
@@ -775,6 +779,7 @@ VISTAS.noticias = (m) => {
 };
 /* ---------- Archivo de fotos: las ya usadas, para reciclar. Cada semana se decide cuál dejar y cuál borrar ---------- */
 let FOT = null, filtroF = "revisar", buscaF = "";
+const borradoresN = {};   // borrador de cada noticia abierta (clave "f<fila>" o "nueva"): no se pierde si la pantalla se redibuja
 async function vistaFotos(m) {
   m.innerHTML = titulo("Noticias") + subNoticias() + `<div class="aviso">Cargando el archivo de fotos…</div>`;
   enlazarSubNoticias(m);
@@ -867,7 +872,11 @@ async function vistaTitulares(m) {
 }
 function editorNoticia(E, V, n, todas) {
   E.innerHTML = `<h2><i style="background:var(--amarillo)"></i>${n.fila ? "Editando noticia" : "Noticia nueva"}</h2>`;
-  const st = Object.assign({}, n); let fotoNueva = null;   // fotoNueva = dataURL encuadrado, se sube al guardar
+  // borrador de esta noticia: lo que se escribe y la foto encuadrada siguen acá aunque la pantalla se redibuje (otro guardado, la actualización automática)
+  const clave = n.fila ? "f" + n.fila : "nueva", sinCambios = (b) => !b.fotoNueva && COLS_N.every((k) => (b.st[k] || "") === (n[k] || ""));
+  let bor = borradoresN[clave]; if (!bor || (n.fila && sinCambios(bor))) bor = borradoresN[clave] = { st: Object.assign({}, n), fotoNueva: null };
+  const st = bor.st; let fotoNueva = bor.fotoNueva;   // fotoNueva = dataURL encuadrado, se sube al guardar
+  const ponerFoto = (u) => { fotoNueva = u; bor.fotoNueva = u; };
   // vista previa (tanda y TITULARES) con la noticia que se está editando
   let pvT = V.querySelector(".pv.negro"), pvE = V.querySelector(".pv:not(.negro)"); const nuevas = !pvT;   // las vistas previas siguen entre noticia y noticia: se les manda la que se elige
   if (nuevas) {
@@ -905,7 +914,7 @@ function editorNoticia(E, V, n, todas) {
   const cats = [...new Set(todas.map((x) => x.categoria).filter(Boolean))];
   const fila2 = h(`<div class="dos"><label>Categoría<input type="text" list="cats" value="${esc(st.categoria)}"><datalist id="cats">${cats.map((c) => `<option value="${esc(c)}">`).join("")}</datalist></label><label>Crédito de la foto<input type="text" value="${esc(st.credito_foto)}" placeholder="Ej.: AdHoc"></label></div>`);
   const [inCat, inCred] = fila2.querySelectorAll("input");
-  inCat.oninput = () => { st.categoria = inCat.value; mandar(); }; inCred.oninput = () => { st.credito_foto = inCred.value; mandar(); };
+  inCat.oninput = () => { st.categoria = inCat.value; mandar(); }; inCred.oninput = () => { st.credito_foto = inCred.value; mandar(); const a = E.querySelector(".foto-actual .ayuda"); if (a) a.innerHTML = st.credito_foto ? "Foto: " + esc(st.credito_foto) : '<b style="color:var(--rojo)">Falta el crédito de la foto</b>'; };
   inCat.onchange = () => autoG("categoria"); inCred.onchange = () => autoG("credito_foto");
   E.appendChild(fila2);
   // fuentes consultadas: mínimo dos, con link, para poder leerlas
@@ -919,14 +928,15 @@ function editorNoticia(E, V, n, todas) {
   E.appendChild(gF);
   // foto: subir y encuadrar
   const g = h(`<div class="grupo"><b>Foto</b></div>`); E.appendChild(g);
-  const editorFoto = encuadrador((url) => { fotoNueva = url; mandar(); });
+  const editorFoto = encuadrador((url) => { ponerFoto(url); pintarActual(); mandar(); });
   // foto actual (si hay): se cambia subiendo otra, pegando un link de Drive o eligiendo del archivo
   let act = null;
   const pintarActual = () => {
     if (act) { act.remove(); act = null; }
-    if (!st.imagen) return;
-    act = h(`<div class="foto-actual"><span class="ft" style="background-image:url('${img(st.imagen)}')"></span><div><b>Foto actual</b><div class="ayuda" style="color:var(--gris);font-size:12px;font-weight:600;margin:4px 0 4px">${st.credito_foto ? "Foto: " + esc(st.credito_foto) : "Sin autor cargado"}</div><div class="ayuda" style="color:var(--gris);font-size:12px;font-weight:600;margin:0 0 10px">Para cambiarla, elegí otra del archivo, subí una nueva o pegá un link de Drive.</div><button class="btn sec chico">Quitar la foto</button></div></div>`);
-    act.querySelector("button").onclick = () => { st.imagen = ""; fotoNueva = null; pintarActual(); mandar(); autoG("imagen"); };
+    if (!st.imagen && !fotoNueva) return;
+    const pend = !!fotoNueva;
+    act = h(`<div class="foto-actual${pend ? " pend" : ""}"><span class="ft" style="background-image:url('${pend ? fotoNueva : img(st.imagen)}')"></span><div><b>${pend ? "⚠ Foto nueva SIN GUARDAR: tocá «Guardar»" : "Foto actual"}</b><div class="ayuda" style="color:var(--gris);font-size:12px;font-weight:600;margin:4px 0 4px">${st.credito_foto ? "Foto: " + esc(st.credito_foto) : '<b style="color:var(--rojo)">Falta el crédito de la foto</b>'}</div><div class="ayuda" style="color:var(--gris);font-size:12px;font-weight:600;margin:0 0 10px">Para cambiarla, elegí otra del archivo, subí una nueva o pegá un link de Drive.</div><button class="btn sec chico">Quitar la foto</button></div></div>`);
+    act.querySelector("button").onclick = () => { st.imagen = ""; ponerFoto(null); pintarActual(); mandar(); autoG("imagen"); };
     g.insertBefore(act, g.children[1] || null);
   };
   pintarActual();
@@ -942,7 +952,7 @@ function editorNoticia(E, V, n, todas) {
     lista.forEach((f) => {
       const c = h(`<button type="button" class="arch-it" title="${esc(f.titular)}"><span class="ft" style="background-image:url('${img(f.imagen)}')"></span><small>${f.comodin ? "★ " + esc(f.comodin) + " · " : ""}${esc(f.credito || "sin autor")}</small></button>`);
       c.onclick = () => {
-        st.imagen = f.imagen; fotoNueva = null;
+        st.imagen = f.imagen; ponerFoto(null);
         if (f.credito) { st.credito_foto = f.credito; inCred.value = f.credito; }
         archC.hidden = true; archB.textContent = "🗂 Elegir del archivo de fotos";
         pintarActual(); mandar(); autoG("imagen", "credito_foto");
@@ -963,19 +973,27 @@ function editorNoticia(E, V, n, todas) {
   const [bG, bA] = pie.querySelectorAll("button");
   bG.onclick = async () => {
     if (!st.fila && urlsDe(st.fuentes).length < 2) { aviso("Faltan fuentes: poné al menos dos links de donde salió la noticia", true); fTx.focus(); return; }
+    const fotoCambia = !!fotoNueva || (st.imagen || "") !== (guardadoN.imagen || "");
+    if (fotoCambia && (st.imagen || fotoNueva) && !String(st.credito_foto || "").trim()) { aviso("Poné el crédito de la foto antes de guardar (ej.: Prensa Peñarol, AUF, Nombre Apellido / Agencia)", true); inCred.focus(); return; }
     bG.disabled = true; bG.textContent = "Guardando…";
     try {
       while (corriendoN) await new Promise((r) => setTimeout(r, 200));   // primero lo que quedó en la cola: puede correr las filas
-      if (fotoNueva) { bG.textContent = "Subiendo la foto…"; st.imagen = await srv("subirFoto", fotoNueva.split(",")[1], "noticia-" + Date.now() + ".jpg"); }
+      if (fotoNueva) { bG.textContent = "Subiendo la foto…"; st.imagen = await srv("subirFoto", fotoNueva.split(",")[1], "noticia-" + Date.now() + ".jpg"); ponerFoto(null); }
       const datos = {}; COLS_N.forEach((k) => (datos[k] = st[k] || ""));
       if (st.fila && puede("noticias")) {   // noticia que ya existe: se guarda lo que cambió (foto incluida) y la pantalla queda como está, sin recargar las noticias
-        fotoNueva = null; autoG.apply(null, COLS_N.filter((k) => k !== "mostrar")); pintarActual(); bG.disabled = false; bG.textContent = "Guardar"; aviso("Guardado ✓ · OBS lo toma en unos segundos"); return; }
+        autoG.apply(null, COLS_N.filter((k) => k !== "mostrar")); pintarActual(); bG.disabled = false; bG.textContent = "Guardar"; aviso("Guardado ✓ · OBS lo toma en unos segundos"); return; }
       const nueva = !st.fila, fila = await guardar("guardarNoticia", st.fila, datos);
       const t = D.noticias, c = cab(t); while (t.length < fila) t.push(c.map(() => ""));
       COLS_N.forEach((k) => (t[fila - 1][c.indexOf(k)] = datos[k])); if (PERM("noticias") === "cargar") ponerN(fila, "mostrar", "PENDIENTE"); else if (nueva && !datos.mostrar) ponerN(fila, "mostrar", "SI");
-      elegidaN = { fila }; ir("noticias"); ponerAlDia();
-    } catch (e) { aviso(e.message || String(e), true); bG.disabled = false; bG.textContent = "Guardar"; }
+      delete borradoresN[clave]; elegidaN = { fila }; ir("noticias"); ponerAlDia();
+    } catch (e) { aviso("No se guardó: " + (e.message || String(e)) + ". Lo que cargaste sigue acá; probá «Guardar» de nuevo.", true); bG.disabled = false; bG.textContent = "Guardar"; }
   };
+  if (!st.fila || fotoNueva) {   // descartar lo que no se guardó (noticia nueva o foto nueva sin guardar)
+    const bx = h(`<button class="btn sec chico">✕ Descartar lo no guardado</button>`); let arm = 0;
+    bx.onclick = () => { if (!arm) { bx.textContent = "¿Seguro? Se pierde lo no guardado"; arm = setTimeout(() => { arm = 0; bx.textContent = "✕ Descartar lo no guardado"; }, 4000); return; }
+      delete borradoresN[clave]; if (!st.fila) elegidaN = null; ir("noticias"); aviso("Descartado"); };
+    pie.appendChild(bx);
+  }
   if (bA) bA.onclick = async () => { st.mostrar = esSi(st.mostrar) ? "NO" : "SI"; if (!st.fila) { bA.textContent = esSi(st.mostrar) ? "Sacar del aire" : "Poner al aire"; return; } const v = st.mostrar; rapido("guardarNoticia", [st.fila, { mostrar: v }], () => ponerN(st.fila, "mostrar", v)); };
   E.appendChild(pie);
   if (!ENAS) E.appendChild(h(`<div class="aviso">Modo prueba: se puede editar y ver la vista previa, pero no guardar.</div>`));
