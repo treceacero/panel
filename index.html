@@ -914,7 +914,7 @@ function editorNoticia(E, V, n, todas) {
   const cats = [...new Set(todas.map((x) => x.categoria).filter(Boolean))];
   const fila2 = h(`<div class="dos"><label>Categoría<input type="text" list="cats" value="${esc(st.categoria)}"><datalist id="cats">${cats.map((c) => `<option value="${esc(c)}">`).join("")}</datalist></label><label>Crédito de la foto<input type="text" value="${esc(st.credito_foto)}" placeholder="Ej.: AdHoc"></label></div>`);
   const [inCat, inCred] = fila2.querySelectorAll("input");
-  inCat.oninput = () => { st.categoria = inCat.value; mandar(); }; inCred.oninput = () => { st.credito_foto = inCred.value; mandar(); const a = E.querySelector(".foto-actual .ayuda"); if (a) a.innerHTML = st.credito_foto ? "Foto: " + esc(st.credito_foto) : '<b style="color:var(--rojo)">Falta el crédito de la foto</b>'; };
+  inCat.oninput = () => { st.categoria = inCat.value; mandar(); }; inCred.oninput = () => { st.credito_foto = inCred.value; mandar(); const a = E.querySelector(".foto-actual .ayuda"); if (a) a.innerHTML = st.credito_foto ? "Foto: " + esc(st.credito_foto) : '<span style="color:var(--gris)">Sin crédito (opcional)</span>'; };
   inCat.onchange = () => autoG("categoria"); inCred.onchange = () => autoG("credito_foto");
   E.appendChild(fila2);
   // fuentes consultadas: mínimo dos, con link, para poder leerlas
@@ -935,7 +935,7 @@ function editorNoticia(E, V, n, todas) {
     if (act) { act.remove(); act = null; }
     if (!st.imagen && !fotoNueva) return;
     const pend = !!fotoNueva;
-    act = h(`<div class="foto-actual${pend ? " pend" : ""}"><span class="ft" style="background-image:url('${pend ? fotoNueva : img(st.imagen)}')"></span><div><b>${pend ? "⚠ Foto nueva SIN GUARDAR: tocá «Guardar»" : "Foto actual"}</b><div class="ayuda" style="color:var(--gris);font-size:12px;font-weight:600;margin:4px 0 4px">${st.credito_foto ? "Foto: " + esc(st.credito_foto) : '<b style="color:var(--rojo)">Falta el crédito de la foto</b>'}</div><div class="ayuda" style="color:var(--gris);font-size:12px;font-weight:600;margin:0 0 10px">Para cambiarla, elegí otra del archivo, subí una nueva o pegá un link de Drive.</div><button class="btn sec chico">Quitar la foto</button></div></div>`);
+    act = h(`<div class="foto-actual${pend ? " pend" : ""}"><span class="ft" style="background-image:url('${pend ? fotoNueva : img(st.imagen)}')"></span><div><b>${pend ? "⚠ Foto nueva SIN GUARDAR: tocá «Guardar»" : "Foto actual"}</b><div class="ayuda" style="color:var(--gris);font-size:12px;font-weight:600;margin:4px 0 4px">${st.credito_foto ? "Foto: " + esc(st.credito_foto) : '<span style="color:var(--gris)">Sin crédito (opcional)</span>'}</div><div class="ayuda" style="color:var(--gris);font-size:12px;font-weight:600;margin:0 0 10px">Para cambiarla, elegí otra del archivo, subí una nueva o pegá un link de Drive.</div><button class="btn sec chico">Quitar la foto</button></div></div>`);
     act.querySelector("button").onclick = () => { st.imagen = ""; ponerFoto(null); pintarActual(); mandar(); autoG("imagen"); };
     g.insertBefore(act, g.children[1] || null);
   };
@@ -974,14 +974,14 @@ function editorNoticia(E, V, n, todas) {
   bG.onclick = async () => {
     if (!st.fila && urlsDe(st.fuentes).length < 2) { aviso("Faltan fuentes: poné al menos dos links de donde salió la noticia", true); fTx.focus(); return; }
     const fotoCambia = !!fotoNueva || (st.imagen || "") !== (guardadoN.imagen || "");
-    if (fotoCambia && (st.imagen || fotoNueva) && !String(st.credito_foto || "").trim()) { aviso("Poné el crédito de la foto antes de guardar (ej.: Prensa Peñarol, AUF, Nombre Apellido / Agencia)", true); inCred.focus(); return; }
+    const sinCredito = fotoCambia && (st.imagen || fotoNueva) && !String(st.credito_foto || "").trim();   // se puede guardar igual: solo se avisa
     bG.disabled = true; bG.textContent = "Guardando…";
     try {
       while (corriendoN) await new Promise((r) => setTimeout(r, 200));   // primero lo que quedó en la cola: puede correr las filas
       if (fotoNueva) { bG.textContent = "Subiendo la foto…"; st.imagen = await srv("subirFoto", fotoNueva.split(",")[1], "noticia-" + Date.now() + ".jpg"); ponerFoto(null); }
       const datos = {}; COLS_N.forEach((k) => (datos[k] = st[k] || ""));
       if (st.fila && puede("noticias")) {   // noticia que ya existe: se guarda lo que cambió (foto incluida) y la pantalla queda como está, sin recargar las noticias
-        autoG.apply(null, COLS_N.filter((k) => k !== "mostrar")); pintarActual(); bG.disabled = false; bG.textContent = "Guardar"; aviso("Guardado ✓ · OBS lo toma en unos segundos"); return; }
+        autoG.apply(null, COLS_N.filter((k) => k !== "mostrar")); pintarActual(); bG.disabled = false; bG.textContent = "Guardar"; aviso("Guardado ✓ · OBS lo toma en unos segundos" + (sinCredito ? " · la foto quedó sin crédito" : "")); return; }
       const nueva = !st.fila, fila = await guardar("guardarNoticia", st.fila, datos);
       const t = D.noticias, c = cab(t); while (t.length < fila) t.push(c.map(() => ""));
       COLS_N.forEach((k) => (t[fila - 1][c.indexOf(k)] = datos[k])); if (PERM("noticias") === "cargar") ponerN(fila, "mostrar", "PENDIENTE"); else if (nueva && !datos.mostrar) ponerN(fila, "mostrar", "SI");
