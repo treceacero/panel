@@ -298,6 +298,7 @@
   .pv-f.auto { grid-template-columns:1fr; grid-template-areas:"b" "s"; }
   .pv-secs { display:grid; grid-template-columns:1fr 1fr; gap:8px; } .pv-secs select { width:100%; }
   @media (max-width:760px) { .pv-secs { grid-template-columns:1fr; } .pv-f { grid-template-columns:52px 1fr; grid-template-areas:"d b" "d s" "d e"; } }
+  .tt-ctrl { padding:10px 12px; margin:8px 0; border-left:5px solid var(--linea); background:rgba(0,0,0,.02); } .tt-ctrl.bien { border-left-color:var(--verde); } .tt-ctrl.mal { border-left-color:var(--rojo); background:rgba(197,2,30,.05); }
   .tt-tabla input { width:100%; min-width:0; padding:5px 6px; font:inherit; } .tt-tabla input.ch { width:64px; text-align:center; } .tt-tabla input.aj.on { outline:2px solid var(--amarillo); background:rgba(249,190,2,.12); font-weight:800; } .tt-tabla td:nth-child(2) { min-width:150px; }
   .g-canchita { position:relative; width:100%; max-width:340px; aspect-ratio:4/3.4; margin:4px auto 2px; background:repeating-linear-gradient(0deg,#2f8f4e 0 12.5%,#2a8447 12.5% 25%); border:2px solid #fff; box-shadow:0 0 0 1px var(--linea); touch-action:none; user-select:none; overflow:hidden; }
   .g-canchita::before { content:""; position:absolute; left:28%; right:28%; bottom:0; height:18%; border:2px solid rgba(255,255,255,.75); border-bottom:0; }
@@ -1931,12 +1932,14 @@ function tablasTicker(F) {
   const pinta = () => {
     const L = filas.filter((x) => x.tabla === tabSel).sort((a, b) => n(a.pos) - n(b.pos)), prom = tabSel === "promedios";
     F.innerHTML = `<h2><i style="background:var(--verde)"></i>Tablas del ticker</h2>
-      <div class="aviso">Se traen solas de la web de la AUF todos los días a las 7${act ? ` (última: <b>${esc(act)}</b>)` : ""}. Si un puntaje está mal, poné la diferencia en <b>Corrección</b> (por ejemplo −3 por una sanción, o +3 por un partido que la AUF todavía no cargó): se suma en el ticker, la tabla se reordena y la actualización automática no la borra. Los demás datos también se pueden cambiar, pero la próxima actualización de la AUF los vuelve a poner.</div>
+      <div class="aviso">El ticker arma la <b>anual</b> y el <b>descenso</b> con ESPN, que suma cada partido apenas termina (y en vivo mientras se juega). Esta planilla es la tabla oficial de la AUF${act ? ` (última: <b>${esc(act)}</b>)` : ""}: sirve para controlar y de respaldo si ESPN falla, y la Segunda sale de acá. Si un puntaje está mal, poné la diferencia en <b>Corrección</b> (por ejemplo −3 por una sanción): se suma en el ticker y la tabla se reordena. Las correcciones no se borran solas.</div>
+      <div id="tt-control"></div>
       <div class="subtabs">${tablas.map((t) => `<button class="chip${t === tabSel ? " on" : ""}" data-t="${t}">${esc(NOMBRES_T[t] || t)}</button>`).join("")}</div>
       <div style="overflow-x:auto"><table class="rs-tabla tt-tabla"><thead><tr><th>#</th><th>Equipo</th><th>PJ</th><th>Pts${prom ? " (2 años)" : ""}</th><th>Corrección</th><th>Total</th><th>${prom ? "Promedio" : "Dif."}</th></tr></thead><tbody>
       ${L.map((x) => { const tot = n(x.pts) + n(x.ajuste); return `<tr data-i="${filas.indexOf(x)}"><td class="n">${esc(x.pos)}</td><td><input data-k="equipo" value="${esc(x.equipo)}"></td><td><input data-k="pj" inputmode="numeric" value="${esc(x.pj)}" class="ch"></td><td><input data-k="pts" inputmode="numeric" value="${esc(x.pts)}" class="ch"></td>
         <td><input data-k="ajuste" inputmode="numeric" value="${esc(x.ajuste)}" placeholder="0" class="ch aj${n(x.ajuste) ? " on" : ""}"></td><td class="n tot"><b>${tot}</b></td><td>${prom ? `<span class="n">${n(x.pj) ? (tot / n(x.pj)).toFixed(3).replace(".", ",") : ""}</span>` : `<input data-k="dg" inputmode="numeric" value="${esc(x.dg)}" class="ch">`}</td></tr>`; }).join("")}</tbody></table></div>
       <div class="pie" style="flex-wrap:wrap;gap:8px"><button class="btn am" id="tt-ok">Guardar tablas</button><button class="btn sec" id="tt-auf">⟳ Traer de la AUF ahora</button></div>`;
+    pintaControl(F.querySelector("#tt-control"));
     F.querySelectorAll(".subtabs .chip").forEach((b) => (b.onclick = () => { tabSel = b.dataset.t; pinta(); }));
     F.querySelectorAll("tbody input").forEach((inp) => (inp.oninput = () => {
       const x = filas[+inp.closest("tr").dataset.i]; x[inp.dataset.k] = inp.value.trim().replace(/[\u2212\u2013]/g, "-").replace(/^\+/, "").replace(",", ".");
@@ -1948,6 +1951,18 @@ function tablasTicker(F) {
       try { const r = await srv("actualizarTablasAUF"); D.tablas = r.tablas; aviso("Listo: " + r.resumen); tablasTicker(F); } catch (e) { aviso(e.message || String(e), true); b.disabled = false; b.textContent = "⟳ Traer de la AUF ahora"; } };
   };
   pinta();
+}
+// control de todas las mañanas: la anual de ESPN (la del ticker) contra la de la AUF
+function pintaControl(box) {
+  const C = D.controlTablas;
+  const malos = C ? C.filas.filter((f) => f.estado === "distinto") : [], pend = C ? C.filas.filter((f) => f.estado !== "igual" && f.estado !== "distinto") : [];
+  box.innerHTML = `<div class="tt-ctrl ${!C ? "" : malos.length ? "mal" : "bien"}"><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><b>Control ESPN ↔ AUF</b>
+    <span>${!C ? "Todavía no se hizo." : malos.length ? `⚠ ${malos.length} equipo(s) con puntos distintos` : `✓ Coinciden ${C.iguales} de ${C.filas.length}`}${C ? ` · ${esc(C.fecha)}` : ""}</span>
+    <button class="btn sec chico" id="tt-ctl" style="margin-left:auto">Controlar ahora</button></div>
+    ${malos.length || pend.length ? `<table class="rs-tabla" style="margin-top:8px"><thead><tr><th>Equipo</th><th>ESPN (ticker)</th><th>AUF</th><th></th></tr></thead><tbody>${malos.concat(pend).map((f) => `<tr><td><b>${esc(f.equipo)}</b></td><td class="n">${f.espn_pts} pts · ${f.espn_pj} PJ</td><td class="n">${f.auf_pts == null ? "—" : f.auf_pts + " pts · " + f.auf_pj + " PJ"}</td><td>${esc(f.estado)}</td></tr>`).join("")}</tbody></table>
+      <span class="ayuda">«Distinto»: mismos partidos y distintos puntos; si la AUF tiene razón, cargá la diferencia en Corrección. «Todavía no cargó»: la AUF va atrasada, no hace falta tocar nada.</span>` : ""}</div>`;
+  box.querySelector("#tt-ctl").onclick = async (ev) => { const b = ev.target; b.disabled = true; b.textContent = "Controlando…";
+    try { D.controlTablas = await srv("controlarTablas"); pintaControl(box); aviso(D.controlTablas.distintos ? "Hay equipos con puntos distintos: revisalos." : "Las tablas coinciden."); } catch (e) { aviso(e.message || String(e), true); b.disabled = false; b.textContent = "Controlar ahora"; } };
 }
 VISTAS.correcciones = (m) => {
   m.innerHTML = titulo("Correcciones") + `<div class="card form" id="fc"></div>`;
