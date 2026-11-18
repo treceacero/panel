@@ -298,6 +298,7 @@
   .pv-f.auto { grid-template-columns:1fr; grid-template-areas:"b" "s"; }
   .pv-secs { display:grid; grid-template-columns:1fr 1fr; gap:8px; } .pv-secs select { width:100%; }
   @media (max-width:760px) { .pv-secs { grid-template-columns:1fr; } .pv-f { grid-template-columns:52px 1fr; grid-template-areas:"d b" "d s" "d e"; } }
+  .per-foto { width:44px; height:44px; flex:none; object-fit:cover; display:block; background:var(--celeste); }
   .tt-ctrl { padding:10px 12px; margin:8px 0; border-left:5px solid var(--linea); background:rgba(0,0,0,.02); } .tt-ctrl.bien { border-left-color:var(--verde); } .tt-ctrl.mal { border-left-color:var(--rojo); background:rgba(197,2,30,.05); }
   .tt-tabla input { width:100%; min-width:0; padding:5px 6px; font:inherit; } .tt-tabla input.ch { width:64px; text-align:center; } .tt-tabla input.aj.on { outline:2px solid var(--amarillo); background:rgba(249,190,2,.12); font-weight:800; } .tt-tabla td:nth-child(2) { min-width:150px; }
   .g-canchita { position:relative; width:100%; max-width:340px; aspect-ratio:4/3.4; margin:4px auto 2px; background:repeating-linear-gradient(0deg,#2f8f4e 0 12.5%,#2a8447 12.5% 25%); border:2px solid #fff; box-shadow:0 0 0 1px var(--linea); touch-action:none; user-select:none; overflow:hidden; }
@@ -1959,7 +1960,7 @@ function pintaControl(box) {
   box.innerHTML = `<div class="tt-ctrl ${!C ? "" : malos.length ? "mal" : "bien"}"><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><b>Control ESPN ↔ AUF</b>
     <span>${!C ? "Todavía no se hizo." : malos.length ? `⚠ ${malos.length} equipo(s) con puntos distintos` : `✓ Coinciden ${C.iguales} de ${C.filas.length}`}${C ? ` · ${esc(C.fecha)}` : ""}</span>
     <button class="btn sec chico" id="tt-ctl" style="margin-left:auto">Controlar ahora</button></div>
-    ${malos.length || pend.length ? `<table class="rs-tabla" style="margin-top:8px"><thead><tr><th>Equipo</th><th>ESPN (ticker)</th><th>AUF</th><th></th></tr></thead><tbody>${malos.concat(pend).map((f) => `<tr><td><b>${esc(f.equipo)}</b></td><td class="n">${f.espn_pts} pts · ${f.espn_pj} PJ</td><td class="n">${f.auf_pts == null ? "—" : f.auf_pts + " pts · " + f.auf_pj + " PJ"}</td><td>${esc(f.estado)}</td></tr>`).join("")}</tbody></table>
+    ${malos.length || pend.length ? `<table class="rs-tabla" style="margin-top:8px"><thead><tr><th>Equipo</th><th>ESPN (ticker)</th><th>AUF</th><th></th></tr></thead><tbody>${malos.concat(pend).map((f) => `<tr><td><b>${esc(f.equipo)}</b></td><td class="n">${f.espn_pts} pts · ${f.espn_pj} PJ${f.ajuste ? ` <small>(con ${f.ajuste > 0 ? "+" : ""}${f.ajuste})</small>` : ""}</td><td class="n">${f.auf_pts == null ? "—" : f.auf_pts + " pts · " + f.auf_pj + " PJ"}</td><td>${esc(f.estado)}</td></tr>`).join("")}</tbody></table>
       <span class="ayuda">«Distinto»: mismos partidos y distintos puntos; si la AUF tiene razón, cargá la diferencia en Corrección. «Todavía no cargó»: la AUF va atrasada, no hace falta tocar nada.</span>` : ""}</div>`;
   box.querySelector("#tt-ctl").onclick = async (ev) => { const b = ev.target; b.disabled = true; b.textContent = "Controlando…";
     try { D.controlTablas = await srv("controlarTablas"); pintaControl(box); aviso(D.controlTablas.distintos ? "Hay equipos con puntos distintos: revisalos." : "Las tablas coinciden."); } catch (e) { aviso(e.message || String(e), true); b.disabled = false; b.textContent = "Controlar ahora"; } };
@@ -2352,7 +2353,7 @@ VISTAS.equipo = async (m) => {
     const completo = p.cedula && p.celular && p.foto;
     const proxAus = (p.ausencias || []).filter((a) => a.hasta >= hoy).sort((a, b) => a.desde.localeCompare(b.desde));
     const acVenc = p.acred_vence && p.acred_vence < hoy, acPronto = !acVenc && p.acred_vence && p.acred_vence <= masDias(30);
-    const it = h(`<div class="persona"><div class="per"><i>${esc(iniciales(p.nombre))}</i></div><div style="display:flex;flex-direction:column;gap:8px;min-width:0">
+    const it = h(`<div class="persona"><div class="per">${p.foto_mini ? `<img class="per-foto" src="${esc(p.foto_mini)}" alt="">` : `<i>${esc(iniciales(p.nombre))}</i>`}</div><div style="display:flex;flex-direction:column;gap:8px;min-width:0">
       <div><b style="font-size:16px">${esc(p.nombre)}</b> <span class="tag ${completo ? "ok" : "mal"}">${completo ? "Datos completos" : "Faltan datos"}</span>
         ${p.acred ? `<span class="tag ${acVenc || acPronto ? "mal" : "ok"}">Acreditación${p.acred_vence ? (acVenc ? " vencida " : acPronto ? " vence pronto: " : " hasta ") + esc(corta(p.acred_vence)) : " ✓"}</span>` : `<span class="tag">Sin acreditación</span>`}</div>
       <div class="datos"><span>${esc(p.email)}</span>${p.celular ? `<span>📱 ${esc(p.celular)}</span>` : ""}${p.cedula ? `<span>CI ${esc(p.cedula)}</span>` : ""}${proxAus.map((a) => `<span style="color:var(--rojo)">${esc(MOTIVOS[a.motivo] || a.motivo)} ${esc(corta(a.desde))}${a.hasta !== a.desde ? "–" + esc(corta(a.hasta)) : ""}</span>`).join("")}</div>
