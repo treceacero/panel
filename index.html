@@ -2564,7 +2564,7 @@ VISTAS.convocatorias = async (m) => {
 };
 function pintarConv(m) {
   sincroPre("leerConvocatorias", CV);
-  const tabs = [["calendario", "Calendario convocatorias"], ["mias", "Mis convocatorias"]].concat(CV.puedeConvocar ? [["generar", "Generar convocatoria"]] : [], [["resumen", CV.veResumen ? "Resumen y jornales" : "Mi resumen"]]);
+  const tabs = [["calendario", "Calendario convocatorias"], ["mias", "Mis convocatorias"]].concat(CV.puedeConvocar ? [["generar", "Generar convocatoria"]] : [], CV.veResumen ? [["resumen", "Resumen y jornales"]] : []);   // jornales: solo el rol Director
   if (!tabs.find((t) => t[0] === subConv)) subConv = "calendario";
   const mias = CV.convocatorias.filter((c) => c.estado !== "cancelada" && c.fecha >= hoyISO() && c.gente.some((g) => g.email === D.yo && g.respuesta === "pendiente")).length;
   m.innerHTML = titulo("Convocatorias") + `<div class="subtabs">${tabs.map(([k, t]) => `<button class="chip${k === subConv ? " on" : ""}" data-t="${k}">${t}${k === "mias" && mias ? ` (${mias} sin responder)` : ""}</button>`).join("")}</div><div id="cv"></div>`;
