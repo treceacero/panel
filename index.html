@@ -290,6 +290,14 @@
   .g-j { display:flex; gap:4px; align-items:center; } .g-j .g-n { width:48px; flex:none; text-align:center; padding:7px 4px; font-weight:900; } .g-j .g-nom { flex:1; min-width:0; padding:7px 8px; }
   .g-agarre { flex:none; width:18px; text-align:center; cursor:grab; color:var(--gris); font-size:16px; user-select:none; touch-action:none; }
   .rs-tabla { width:100%; border-collapse:collapse; font-size:15px; } .rs-tabla th { background:var(--azul); color:#fff; padding:7px 8px; text-align:left; font-weight:800; white-space:nowrap; } .rs-tabla td { padding:7px 8px; border-bottom:1px solid var(--linea); } .rs-tabla td.n { text-align:center; } .rs-f { cursor:pointer; } .rs-f:hover td { background:rgba(0,134,195,.07); } .rs-det td { background:rgba(249,190,2,.08); }
+  .pv-lista { display:flex; flex-direction:column; gap:4px; } .pv-otros { display:flex; flex-direction:column; gap:4px; max-height:280px; overflow:auto; }
+  .pv-g { font:800 12px var(--f); letter-spacing:.08em; text-transform:uppercase; color:var(--gris); margin:8px 0 2px; }
+  .pv-f { display:grid; grid-template-columns:62px 1fr auto; grid-template-areas:"d b e" "d s e"; align-items:center; gap:0 10px; text-align:left; padding:8px 10px; background:var(--blanco,#fff); border:1px solid var(--linea); cursor:pointer; font:inherit; color:inherit; }
+  .pv-f .d { grid-area:d; font:800 12px var(--f); color:var(--gris); text-transform:uppercase; } .pv-f b { grid-area:b; font:800 15px var(--f); min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; } .pv-f small { grid-area:s; color:var(--gris); font-size:12px; } .pv-f .e { grid-area:e; font:800 13px var(--f); white-space:nowrap; }
+  .pv-f.vivo .e { color:var(--rojo); } .pv-f.on { outline:3px solid var(--celeste); outline-offset:-3px; background:rgba(0,134,195,.08); }
+  .pv-f.auto { grid-template-columns:1fr; grid-template-areas:"b" "s"; }
+  .pv-secs { display:grid; grid-template-columns:1fr 1fr; gap:8px; } .pv-secs select { width:100%; }
+  @media (max-width:760px) { .pv-secs { grid-template-columns:1fr; } .pv-f { grid-template-columns:52px 1fr; grid-template-areas:"d b" "d s" "d e"; } }
   .g-canchita { position:relative; width:100%; max-width:340px; aspect-ratio:4/3.4; margin:4px auto 2px; background:repeating-linear-gradient(0deg,#2f8f4e 0 12.5%,#2a8447 12.5% 25%); border:2px solid #fff; box-shadow:0 0 0 1px var(--linea); touch-action:none; user-select:none; overflow:hidden; }
   .g-canchita::before { content:""; position:absolute; left:28%; right:28%; bottom:0; height:18%; border:2px solid rgba(255,255,255,.75); border-bottom:0; }
   .g-canchita::after { content:""; position:absolute; left:40%; right:40%; top:-12%; height:24%; border:2px solid rgba(255,255,255,.75); border-radius:50%; }
@@ -1276,6 +1284,9 @@ VISTAS.partido = (m) => {
   const VISTAS_EQ = [["auto", "Automática"], ["cancha", "Canchita"], ["lista", "Listado XI"], ["suplentes", "Suplentes"]];
   const nL = esc(st.local || "Local"), nV = esc(st.visitante || "Visitante"), sino = (k) => sinT(st[k] || "si") !== "no";
   const GL = h(`<div class="grupo"><b>Pantalla del partido</b>
+    <div class="a-titulo">Partidos en pantalla</div>${chipsDe("cant_partidos", [["1", "Solo el principal"], ["2", "Principal + 1 secundario"], ["3", "Principal + 2 secundarios"]], "1")}
+    ${+(st.cant_partidos || 1) > 1 ? `<div class="pv-secs">${[1, 2].slice(0, +st.cant_partidos - 1).map((i) => `<label>Secundario ${i}<select data-sec="sec${i}"><option value="">Cargando partidos…</option></select></label>`).join("")}</div>
+      <span class="ayuda">Cada secundario sale en un recuadro aparte, más abajo, con escudos, marcador, tiempo y autores de los goles. Sirve para las definiciones con varios partidos a la vez.</span>` : ""}
     <div class="a-titulo">Módulo de abajo</div>${chipsDe("lado", [["tablas", "Tablas"], ["noticias", "Noticias"], ["alternar", "Alternar las dos"], ["nada", "Nada"]], "tablas")}
     <div class="a-titulo">${nL} (izquierda)</div>${chipsDe("vista_l", VISTAS_EQ, "auto")}
     <div class="a-titulo">${nV} (derecha)</div>${chipsDe("vista_v", VISTAS_EQ, "auto")}
@@ -1286,6 +1297,13 @@ VISTAS.partido = (m) => {
     <div class="botonera"><button class="btn sec chico" id="cr-conv">⤓ Traer de la convocatoria</button><button class="btn ce chico" id="cr-ok">Guardar créditos</button></div>
     <span class="ayuda">En la barra de abajo se alternan cada minuto: redes → créditos → redes → «Escuchá, y mirá, el programa de lunes a viernes a las 19 horas». Siempre se suma «Dirección: Ricardo “Profesor” Piñeyrúa».</span></div>`);
   GL.querySelectorAll(".chips[data-clave] .chip").forEach((b) => (b.onclick = () => yaGuardar({ [b.parentNode.dataset.clave]: b.dataset.v })));
+  if (GL.querySelector("[data-sec]")) partidosVivo().then((L) => GL.querySelectorAll("[data-sec]").forEach((sel) => {
+    const v = st[sel.dataset.sec] || "", op = (p) => { const t = txtVivo(p); return `<option value="${esc(p.clave)}"${p.clave === v ? " selected" : ""}>${t.dia} ${esc(t.est)} · ${esc(t.partido)} (${esc(p.comp)})</option>`; };
+    const fav = L.filter((p) => p.fav), otros = L.filter((p) => !p.fav);
+    sel.innerHTML = `<option value="">— Elegí un partido —</option>` + (fav.length ? `<optgroup label="★ Peñarol, Nacional y la Selección">${fav.map(op).join("")}</optgroup>` : "") + (otros.length ? `<optgroup label="Otros partidos">${otros.map(op).join("")}</optgroup>` : "") +
+      (v && !L.some((p) => p.clave === v) ? `<option value="${esc(v)}" selected>(el que estaba elegido ya no está entre ayer y mañana)</option>` : "");
+    sel.onchange = () => yaGuardar({ [sel.dataset.sec]: sel.value });
+  }));
   GL.querySelectorAll("[data-t]").forEach((b) => (b.onclick = () => yaGuardar({ [b.dataset.t]: sino(b.dataset.t) ? "no" : "si" })));
   GL.querySelector("#cr-ok").onclick = () => yaGuardar({ creditos: GL.querySelector("#cr-tx").value.split("\n").map((x) => x.trim()).filter(Boolean).join("; ") });
   GL.querySelector("#cr-conv").onclick = async (ev) => {   // la convocatoria del partido (la de hoy o la más cercana con esos equipos): rol y nombre de los que no rechazaron
@@ -1301,7 +1319,20 @@ VISTAS.partido = (m) => {
   G1.querySelectorAll(".chip").forEach((b) => (b.onclick = () => { set("competencia", b.dataset.k); D.partido = conValores(D.partido, st); VISTAS.partido(m); Object.assign(cambiosPend, cambios); }));
   F.appendChild(G1); F.appendChild(GL);
   if (!manual) {
-    const G2 = h(`<div class="grupo"><b>Equipo</b><label><input type="text" list="eqs" value="${esc(st.equipo)}" placeholder="Vacío = el que se esté jugando con un uruguayo"><datalist id="eqs">${EQUIPOS.map((e) => `<option value="${e}">`).join("")}</datalist></label></div>`);
+    const GP = h(`<div class="grupo"><b>Partido principal</b><div class="pv-lista"><div class="ayuda">Buscando los partidos de ayer, hoy y mañana…</div></div>
+      <span class="ayuda">«Automático» elige solo: primero Peñarol, Nacional o la Selección; si no juegan, el que se esté jugando con un uruguayo. Tocá un partido para fijarlo.</span></div>`);
+    F.appendChild(GP);
+    partidosVivo().then((L) => {
+      const caja = GP.querySelector(".pv-lista"), fav = L.filter((p) => p.fav), otros = L.filter((p) => !p.fav), elegido = st.partido_id || "";
+      const fila = (p) => { const t = txtVivo(p); return `<button class="pv-f${p.clave === elegido ? " on" : ""}${p.estado === "in" ? " vivo" : ""}" data-k="${esc(p.clave)}"><span class="d">${t.dia}</span><b>${esc(t.partido)}</b><small>${esc(p.comp)}</small><span class="e">${esc(t.est)}</span></button>`; };
+      caja.innerHTML = `<button class="pv-f auto${elegido ? "" : " on"}" data-k=""><b>⚡ Automático</b><small>Peñarol, Nacional o la Selección primero</small></button>` +
+        (fav.length ? `<div class="pv-g">★ Peñarol, Nacional y la Selección</div>${fav.map(fila).join("")}` : `<div class="pv-g">★ Peñarol, Nacional y la Selección: no juegan entre ayer y mañana</div>`) +
+        (otros.length ? `<div class="pv-g">Otros partidos (${otros.length})</div><div class="pv-otros">${otros.map(fila).join("")}</div>` : "") +
+        (elegido && !L.some((p) => p.clave === elegido) ? `<div class="aviso">El partido fijado ya no está entre ayer y mañana: la pantalla usa el automático.</div>` : "");
+      caja.querySelectorAll(".pv-f").forEach((b) => (b.onclick = () => { const p = L.find((x) => x.clave === b.dataset.k);
+        aplicar(p ? { partido_id: p.clave, local: p.local, visitante: p.visitante } : { partido_id: "" }); }));
+    });
+    const G2 = h(`<div class="grupo"><b>Equipo</b><label><input type="text" list="eqs" value="${esc(st.equipo)}" placeholder="Opcional: el automático busca solo partidos de este equipo"><datalist id="eqs">${EQUIPOS.map((e) => `<option value="${e}">`).join("")}</datalist></label></div>`);
     const inE = G2.querySelector("input"); inE.oninput = () => set("equipo", inE.value); F.appendChild(G2);
     const G3 = h(`<div class="grupo"><b>Tablas</b><div class="dos"><label>Descienden<input type="number" min="0" max="6" value="${esc(st.descensos || "3")}"></label><label>Texto al lado del torneo<input type="text" value="${esc(st.fase)}" placeholder="Automático"></label></div><label>Sanciones de la AUF<input type="text" value="${esc(st["ajuste.puntos"])}" placeholder="Ej.: Nacional -3; Peñarol -1"><span class="ayuda">Se aplican a la tabla anual y a los promedios</span></label></div>`);
     const [iD, iF, iS] = G3.querySelectorAll("input");
@@ -1699,8 +1730,8 @@ VISTAS.partido = (m) => {
     } catch (e) {}
   };
   let partidoA = null;
-  if (!manual) partidosUruguayos(2).then((L) => {   // el partido de hoy (o el más cercano) para los nombres y el plantel
-    const ahora = Date.now(); partidoA = L.sort((a, b) => Math.abs(new Date(a.fecha + "T" + a.hora) - ahora) - Math.abs(new Date(b.fecha + "T" + b.hora) - ahora))[0] || null;
+  if (!manual) (st.partido_id ? partidosVivo().then((L) => L.filter((p) => p.clave === st.partido_id)).then((L) => L.length ? L : partidosUruguayos(2)) : partidosUruguayos(2)).then((L) => {   // el partido fijado (o el de hoy, o el más cercano) para los nombres y el plantel
+    const ahora = Date.now(); partidoA = L.sort((a, b) => (FAV_IDS.some((i) => (b.ids || []).map(String).includes(i)) - FAV_IDS.some((i) => (a.ids || []).map(String).includes(i))) || Math.abs(new Date(a.fecha + "T" + a.hora) - ahora) - Math.abs(new Date(b.fecha + "T" + b.hora) - ahora))[0] || null;
     if (partidoA) { if (!nl.value) nl.value = partidoA.local; if (!nv.value) nv.value = partidoA.visitante; limpiarViejas(partidoA.local, partidoA.visitante); try { pintarVivo(); } catch (e) {} traerAlinESPN(partidoA); }
     nl.placeholder = "Nombre del local";
   }).catch(() => {});
@@ -2406,6 +2437,31 @@ async function equiposDeLiga(lg) {   // equipos de una liga, sacados de la tabla
     return (cacheEqLiga[lg] = out);
   } catch (e) { return []; }
 }
+// partidos de ayer, hoy y mañana para «Partido en vivo»: Uruguayo, copas (todos) y Selección; Peñarol, Nacional y Uruguay primero
+const FAV_IDS = ["2683", "2684", "212"];
+const LIGAS_VIVO = [["uru.1", "Uruguayo"], ["conmebol.libertadores", "Libertadores"], ["conmebol.sudamericana", "Sudamericana"], ["fifa.worldq.conmebol", "Eliminatorias"], ["fifa.friendly", "Amistoso"]];
+let cacheVivo = null;
+async function partidosVivo() {
+  if (cacheVivo && Date.now() - cacheVivo.t < 60000) return cacheVivo.L;
+  const ymd = (d) => d.toLocaleDateString("en-CA", { timeZone: "America/Montevideo" }), hoy = ymd(new Date()), pedidos = [];
+  LIGAS_VIVO.forEach(([l, nom]) => [-1, 0, 1].forEach((i) => { const d = ymd(new Date(Date.now() + i * 864e5)).replace(/-/g, "");
+    pedidos.push(fetch("https://site.api.espn.com/apis/site/v2/sports/soccer/" + l + "/scoreboard?dates=" + d).then((r) => r.json()).then((j) => (j.events || []).map((ev) => {
+      const co = ev.competitions[0], eq = co.competitors || [], loc = eq.find((x) => x.homeAway === "home") || eq[0], vis = eq.find((x) => x !== loc) || eq[1], f = new Date(ev.date), ty = (ev.status || {}).type || {};
+      const ids = [loc && loc.team.id, vis && vis.team.id].map(String);
+      return { clave: l + "|" + ev.id, espn: ev.id, liga: l, comp: nom, fecha: ymd(f), hora: f.toLocaleTimeString("es-UY", { timeZone: "America/Montevideo", hour: "2-digit", minute: "2-digit", hour12: false }),
+        local: loc && loc.team.displayName, visitante: vis && vis.team.displayName, ids, fav: ids.some((x) => FAV_IDS.includes(x)),
+        estado: ty.state || "pre", reloj: ((ev.status || {}).displayClock || "").replace(/'$/, ""), gl: loc && loc.score, gv: vis && vis.score };
+    })).catch(() => []));
+  }));
+  const vistos = new Set(), ord = { in: 0, pre: 1, post: 2 };
+  const L = (await Promise.all(pedidos)).flat().filter((p) => p.local && !vistos.has(p.clave) && vistos.add(p.clave))
+    .sort((a, b) => (b.fav - a.fav) || LIGAS_VIVO.findIndex((x) => x[0] === a.liga) - LIGAS_VIVO.findIndex((x) => x[0] === b.liga) || (a.fecha === hoy ? 0 : 1) - (b.fecha === hoy ? 0 : 1) || ord[a.estado] - ord[b.estado] || (a.fecha + a.hora).localeCompare(b.fecha + b.hora));
+  cacheVivo = { t: Date.now(), L }; return L;
+}
+const txtVivo = (p) => { const hoy = new Date().toLocaleDateString("en-CA", { timeZone: "America/Montevideo" }), man = new Date(Date.now() + 864e5).toLocaleDateString("en-CA", { timeZone: "America/Montevideo" });
+  const dia = p.fecha === hoy ? "Hoy" : p.fecha === man ? "Mañana" : "Ayer";
+  const est = p.estado === "in" ? `EN VIVO ${p.gl}–${p.gv}${p.reloj ? " · " + p.reloj + "'" : ""}` : p.estado === "post" ? `Final ${p.gl}–${p.gv}` : p.hora;
+  return { dia, est, partido: `${p.local} vs ${p.visitante}` }; };
 async function partidosUruguayos(dias = 20) {   // el Uruguayo, las copas con equipos uruguayos y la Selección
   if (!idsUru) idsUru = new Set((await equiposDeLiga("uru.1")).map((t) => t.id));
   return partidosESPN([["uru.1", "Campeonato Uruguayo"], ["conmebol.libertadores", "Copa Libertadores"], ["conmebol.sudamericana", "Copa Sudamericana"], ["fifa.worldq.conmebol", "Eliminatorias"], ["fifa.friendly", "Amistoso internacional"]],
