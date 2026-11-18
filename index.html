@@ -289,6 +289,16 @@
   .g-sub { font:800 11px/1 var(--f); letter-spacing:.12em; text-transform:uppercase; color:var(--gris); margin-top:6px; }
   .g-j { display:flex; gap:4px; align-items:center; } .g-j .g-n { width:48px; flex:none; text-align:center; padding:7px 4px; font-weight:900; } .g-j .g-nom { flex:1; min-width:0; padding:7px 8px; }
   .g-agarre { flex:none; width:18px; text-align:center; cursor:grab; color:var(--gris); font-size:16px; user-select:none; touch-action:none; }
+  .rs-tabla { width:100%; border-collapse:collapse; font-size:15px; } .rs-tabla th { background:var(--azul); color:#fff; padding:7px 8px; text-align:left; font-weight:800; white-space:nowrap; } .rs-tabla td { padding:7px 8px; border-bottom:1px solid var(--linea); } .rs-tabla td.n { text-align:center; } .rs-f { cursor:pointer; } .rs-f:hover td { background:rgba(0,134,195,.07); } .rs-det td { background:rgba(249,190,2,.08); }
+  .g-canchita { position:relative; width:100%; max-width:340px; aspect-ratio:4/3.4; margin:4px auto 2px; background:repeating-linear-gradient(0deg,#2f8f4e 0 12.5%,#2a8447 12.5% 25%); border:2px solid #fff; box-shadow:0 0 0 1px var(--linea); touch-action:none; user-select:none; overflow:hidden; }
+  .g-canchita::before { content:""; position:absolute; left:28%; right:28%; bottom:0; height:18%; border:2px solid rgba(255,255,255,.75); border-bottom:0; }
+  .g-canchita::after { content:""; position:absolute; left:40%; right:40%; top:-12%; height:24%; border:2px solid rgba(255,255,255,.75); border-radius:50%; }
+  .g-pt { position:absolute; transform:translate(-50%,-50%); display:flex; flex-direction:column; align-items:center; gap:1px; width:70px; cursor:grab; z-index:1; }
+  .g-pt i { width:28px; height:28px; border-radius:50%; background:var(--amarillo); color:var(--azul); font:900 13px/28px var(--f); text-align:center; font-style:normal; box-shadow:0 1px 3px rgba(0,0,0,.35); }
+  .g-pt.arq i { background:#fff; } .g-pt span { font:800 10.5px/1.1 var(--f); color:#fff; text-shadow:0 1px 2px #000; text-align:center; max-width:70px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .g-pt.sel i, .g-bn.sel { outline:3px solid var(--rojo); outline-offset:2px; } .g-pt.sobre i, .g-bn.sobre { outline:3px dashed #fff; outline-offset:2px; }
+  .g-banco { display:flex; flex-wrap:wrap; gap:4px; justify-content:center; } .g-bn { font:800 12px var(--f); padding:4px 8px; background:var(--fondo2,#f1f0f6); border:1px solid var(--linea); cursor:pointer; touch-action:none; user-select:none; }
+  .g-ayc { font-size:12px; color:var(--gris); text-align:center; }
   .g-j.arrastrando { opacity:.4; } .g-j.sobre-a { box-shadow:0 -3px 0 var(--celeste); } .g-j.sobre-b { box-shadow:0 3px 0 var(--celeste); } .g-tit.vacia, .g-sup.vacia { outline:2px dashed var(--celeste); min-height:30px; }
   .g-tit, .g-sup { display:flex; flex-direction:column; gap:4px; min-height:8px; }
   .g-ok { flex:none; min-width:30px; text-align:center; font:800 11px var(--f); padding:4px 3px; border-radius:3px; }
@@ -1507,14 +1517,15 @@ VISTAS.partido = (m) => {
   function pintarGrilla() {
     const eqsL = aTxt.value.split("\n").map((l) => l.trim()).filter(Boolean).map(leerLinea).filter(Boolean);
     grilla.innerHTML = eqsL.length ? "" : `<div class="ayuda">Acá aparece cada equipo con sus jugadores para corregir. Tocá «Armar titulares» o «Armar suplentes».</div>`;
-    const volcar = () => { aTxt.value = eqsL.map(armarLinea).join("\n"); guardarASolo(aTxt.value); };
+    const redib = [];
+    const volcar = () => { aTxt.value = eqsL.map(armarLinea).join("\n"); guardarASolo(aTxt.value); redib.forEach((f) => f()); };
     // nunca más de 11 titulares: los que sobran pasan al banco
     const sobran = eqsL.filter((e) => e.tit.filter((x) => x.nombre.trim() || x.num.trim()).length > 11);
     if (sobran.length) { sobran.forEach((e) => { const t = e.tit.filter((x) => x.nombre.trim() || x.num.trim()); e.sup = t.slice(11).concat(e.sup); e.tit = t.slice(0, 11); }); volcar(); aviso("Los titulares son 11: pasé a suplentes los que sobraban en " + sobran.map((e) => e.equipo).join(" y "), true); }
     eqsL.forEach((e, ei) => {
       const lid = "pl" + ei + Date.now() % 100000; let plan = planGr[sinT(e.equipo)] || null;
       const c = h(`<div class="g-eq"><datalist id="dl-${lid}"></datalist><div class="g-cab"><b>${esc(e.equipo)}</b><select class="g-f">${["", ...FORMAS].map((f) => `<option value="${f}"${f === e.forma ? " selected" : ""}>${f || "Sin formación"}</option>`).join("")}${e.forma && !FORMAS.includes(e.forma) ? `<option selected>${esc(e.forma)}</option>` : ""}</select>
-        <span class="g-cuenta"></span></div><div class="g-tit"></div><b class="g-sub">Suplentes</b><div class="g-sup"></div>
+        <span class="g-cuenta"></span></div><div class="g-canchita"></div><div class="g-banco"></div><div class="g-ayc">Tocá un jugador y después otro para intercambiarlos (o arrastralo encima). Si el segundo es del banco, es un cambio.</div><div class="g-tit"></div><b class="g-sub">Suplentes</b><div class="g-sup"></div>
         <div class="botonera"><button class="btn sec chico g-mas" data-l="tit">+ Titular</button><button class="btn sec chico g-mas" data-l="sup">+ Suplente</button></div></div>`);
       const cuenta = () => { const n = e.tit.filter((x) => x.nombre.trim()).length; const el = c.querySelector(".g-cuenta"); el.textContent = n + " titulares"; el.classList.toggle("mal", n !== 11); };
       const filas = (k) => { const box = c.querySelector(k === "tit" ? ".g-tit" : ".g-sup"); box.innerHTML = "";
@@ -1540,9 +1551,42 @@ VISTAS.partido = (m) => {
           x.onclick = () => { e[k].splice(i, 1); volcar(); filas(k); cuenta(); };
           box.appendChild(f);
         }); };
+      // canchita: arquero abajo, cada línea de derecha a izquierda (el primero después del arquero es el lateral derecho, a la derecha)
+      let sel = null;
+      const cancha = c.querySelector(".g-canchita"), banco = c.querySelector(".g-banco");
+      const corto = (n) => { const w = String(n || "").trim().split(/\s+/); return w.length < 2 ? w[0] || "" : w.slice(1).join(" ").length <= 11 ? w.slice(1).join(" ") : w[w.length - 1]; };
+      const dibC = () => {
+        const T = e.tit.filter((x) => x.nombre.trim() || x.num.trim()), n = T.length;
+        let r = String(e.forma || "").split(/[-–]/).map(Number).filter((x) => x > 0); if (r.reduce((a, b) => a + b, 0) !== n - 1) r = n === 11 ? [4, 4, 2] : [Math.max(0, n - 1)];
+        const filasC = [1].concat(r); let k = 0, html = "";
+        filasC.forEach((cant, fi) => { const y = 88 - fi * (76 / Math.max(1, filasC.length - 1));
+          for (let cc = 0; cc < cant && k < n; cc++, k++) { const x = 100 * (cant - cc) / (cant + 1), j = T[k], idx = e.tit.indexOf(j);
+            html += `<div class="g-pt${fi === 0 ? " arq" : ""}${sel && sel.k === "tit" && sel.i === idx ? " sel" : ""}" data-k="tit" data-i="${idx}" style="left:${x}%;top:${y}%"><i>${esc(j.num || "·")}</i><span>${esc(corto(j.nombre))}</span></div>`; } });
+        cancha.innerHTML = n ? html : `<div class="g-ayc" style="color:#fff;padding:30px 10px">Sin titulares todavía</div>`;
+        banco.innerHTML = e.sup.map((j, i) => (j.nombre.trim() || j.num.trim()) ? `<span class="g-bn${sel && sel.k === "sup" && sel.i === i ? " sel" : ""}" data-k="sup" data-i="${i}">${esc((j.num ? j.num + " " : "") + corto(j.nombre))}</span>` : "").join("");
+      };
+      const cambiar = (a, b) => {   // intercambia dos jugadores (titular↔titular, titular↔suplente)
+        if (a.k === b.k && a.i === b.i) return;
+        const ja = e[a.k][a.i], jb = e[b.k][b.i]; if (!ja || !jb) return;
+        e[a.k][a.i] = jb; e[b.k][b.i] = ja; sel = null; volcar(); filas("tit"); filas("sup"); cuenta();
+      };
+      redib.push(dibC);
+      [cancha, banco].forEach((zona) => zona.addEventListener("pointerdown", (ev) => {
+        const p0 = ev.target.closest(".g-pt,.g-bn"); if (!p0) return; ev.preventDefault();
+        const a = { k: p0.dataset.k, i: +p0.dataset.i }, x0 = ev.clientX, y0 = ev.clientY; let movio = false, sobre = null;
+        const limpiar = () => c.querySelectorAll(".g-pt.sobre,.g-bn.sobre").forEach((z) => z.classList.remove("sobre"));
+        const mover = (e2) => { if (Math.abs(e2.clientX - x0) + Math.abs(e2.clientY - y0) > 8) movio = true; if (!movio) return;
+          limpiar(); const el = document.elementFromPoint(e2.clientX, e2.clientY), t = el && el.closest(".g-pt,.g-bn"); sobre = t && c.contains(t) && t !== p0 ? t : null; if (sobre) sobre.classList.add("sobre"); };
+        const soltar = () => { document.removeEventListener("pointermove", mover); document.removeEventListener("pointerup", soltar); limpiar();
+          if (movio) { if (sobre) cambiar(a, { k: sobre.dataset.k, i: +sobre.dataset.i }); return; }
+          if (!sel) { if (a.k === "sup" && !e.tit.length) return; sel = a; dibC(); return; }
+          if (sel.k === "sup" && a.k === "sup") { sel = a; dibC(); return; }   // dos suplentes: cambia la selección
+          cambiar(sel, a); };
+        document.addEventListener("pointermove", mover); document.addEventListener("pointerup", soltar);
+      }));
       c.querySelector(".g-f").onchange = (ev) => { e.forma = ev.target.value; volcar(); };
       c.querySelectorAll(".g-mas").forEach((b) => (b.onclick = () => { if (b.dataset.l === "tit" && e.tit.length >= 11) { aviso("Ya hay 11 titulares. Sacá o pasá uno a suplentes primero.", true); return; } e[b.dataset.l].push({ num: "", nombre: "" }); filas(b.dataset.l); const ins = c.querySelectorAll(b.dataset.l === "tit" ? ".g-tit .g-nom" : ".g-sup .g-nom"); ins[ins.length - 1].focus(); cuenta(); }));
-      filas("tit"); filas("sup"); cuenta();
+      filas("tit"); filas("sup"); cuenta(); dibC();
       const llenarDl = () => { c.querySelector("datalist").innerHTML = (plan || []).map((p) => `<option value="${esc(p.nombre)}">${esc(p.num)}</option>`).join(""); };
       if (plan) llenarDl(); else plantelGrilla(e.equipo).then((L) => { plan = L; llenarDl(); filas("tit"); filas("sup"); });
       // arrastrar con el mouse o el dedo desde ⠿ para cambiar el orden (también entre titulares y suplentes)
@@ -1612,6 +1656,21 @@ VISTAS.partido = (m) => {
   };
   if (manual) limpiarViejas(st.local, st.visitante);
   // si ESPN ya tiene la alineación (copas, Selección y a veces el Uruguayo), se copia acá para verla y corregirla; lo que ya está cargado no se toca
+  // ESPN no da el orden: formationPlace es un código de puesto (3 = lateral izquierdo, 5 = zaguero…). Se ordena por la posición:
+  // arco, defensa, volantes, enganche, delanteros; cada línea de derecha a izquierda del equipo (primero el lateral derecho). Entre delanteros, el centrodelantero va último (la punta).
+  const ordenESPN = (tit, formacion) => {
+    const pos = (x) => String(((x.position || {}).abbreviation) || "").toUpperCase();
+    const prof = (a) => !a ? 9 : a === "G" || a === "GK" ? 0 : a === "SW" ? 1.5 : /^(R|L)?(CD|CB|D|B|WB)(-[RL])?$/.test(a) ? 1 : /^(R|L)?(CDM|DM)(-[RL])?$/.test(a) ? 2
+      : /^(R|L)?C?M(-[RL])?$/.test(a) ? 3 : /^(R|L)?(CAM|AM)(-[RL])?$/.test(a) || a === "RCF" || a === "SS" ? 4 : /^(R|L)W$/.test(a) ? 4.5 : 5;
+    const lado = (a) => a === "RCF" ? 2 : /-R$/.test(a) ? 1 : /-L$/.test(a) ? 3 : /^R/.test(a) ? 0 : /^L/.test(a) ? 4 : 2;
+    const L = tit.slice().sort((a, b) => (prof(pos(a)) - prof(pos(b))) || (prof(pos(a)) === 5 ? (lado(pos(a)) === 2) - (lado(pos(b)) === 2) : 0) || (lado(pos(a)) - lado(pos(b))) || ((+a.formationPlace || 99) - (+b.formationPlace || 99)));
+    if (L.some((x) => !pos(x))) return tit.slice().sort((a, b) => (+a.formationPlace || 99) - (+b.formationPlace || 99));   // sin puestos: como venía
+    const cant = String(formacion || "").split("-").map(Number).filter((n) => n > 0), arq = L.filter((x) => prof(pos(x)) === 0), resto = L.filter((x) => prof(pos(x)) !== 0);
+    if (cant.reduce((s, n) => s + n, 0) !== resto.length) return arq.concat(resto);
+    let i = 0; const sal = arq.slice();
+    cant.forEach((n) => { sal.push(...resto.slice(i, i + n).sort((a, b) => lado(pos(a)) - lado(pos(b)))); i += n; });
+    return sal;
+  };
   const traerAlinESPN = async (pa) => {
     try {
       const j = await (await fetch("https://site.api.espn.com/apis/site/v2/sports/soccer/" + pa.liga + "/summary?event=" + pa.espn)).json(), R = j.rosters || [];
@@ -1619,10 +1678,23 @@ VISTAS.partido = (m) => {
       const tiene = (n) => actuales.some((l) => { const e = nEq(String(l).replace(/^([^:]*?)\s*\(([^)]*[A-Za-zÁÉÍÓÚáéíóúñÑ][^)]*)\)/, "$1 $2").split(/[:(]/)[0]), x = nEq(n); return e && (e === x || e.includes(x) || x.includes(e)); });
       const nuevas = R.filter((t) => (t.roster || []).some((x) => x.starter) && t.team && !tiene(t.team.displayName)).map((t) => {
         const jg = (x) => ((x.jersey ? x.jersey + " " : "") + ((x.athlete || {}).displayName || "")).replace(/[,|]/g, " ").trim();
-        const tit = t.roster.filter((x) => x.starter).sort((a, b) => (+a.formationPlace || 99) - (+b.formationPlace || 99)), sup = t.roster.filter((x) => !x.starter);
+        const tit = ordenESPN(t.roster.filter((x) => x.starter), t.formation), sup = t.roster.filter((x) => !x.starter);
         return nomL(t.team.displayName) + (t.formation ? " (" + t.formation + ")" : "") + ": " + tit.map(jg).join(", ") + " | ESPN" + (sup.length ? " | Suplentes: " + sup.map(jg).join(", ") : ""); });
-      if (!nuevas.length) return;
-      aTxt.value = actuales.concat(nuevas).join("\n"); pintarGrilla(); guardarASolo(aTxt.value);
+      // las que ya se trajeron de ESPN con el orden viejo (mismos once, otro orden): se reordenan sin tocar suplentes ni lo demás
+      let reord = 0;
+      const corr = actuales.map((l) => {
+        if (!/\|\s*ESPN/.test(l)) return l;
+        const t = R.find((t) => t.team && (t.roster || []).some((x) => x.starter) && tiene(t.team.displayName) && (() => { const e = nEq(String(l).replace(/^([^:]*?)\s*\(([^)]*[A-Za-zÁÉÍÓÚáéíóúñÑ][^)]*)\)/, "$1 $2").split(/[:(]/)[0]), x = nEq(t.team.displayName); return e && (e === x || e.includes(x) || x.includes(e)); })());
+        if (!t) return l;
+        const m = l.match(/^([^:]*:\s*)([^|]*)(.*)$/); if (!m) return l;
+        const jg = (x) => ((x.jersey ? x.jersey + " " : "") + ((x.athlete || {}).displayName || "")).replace(/[,|]/g, " ").trim();
+        const bien = ordenESPN(t.roster.filter((x) => x.starter), t.formation).map(jg), hoy = m[2].split(",").map((x) => x.trim()).filter(Boolean);
+        if (hoy.length !== bien.length || hoy.slice().sort().join("|") !== bien.slice().sort().join("|") || hoy.join("|") === bien.join("|")) return l;
+        reord++; return m[1] + bien.join(", ") + (m[3] ? " " + m[3].trim() : "");
+      });
+      if (!nuevas.length && !reord) return;
+      if (!nuevas.length) { aTxt.value = corr.join("\n"); pintarGrilla(); guardarASolo(aTxt.value); aviso("Ordené la alineación de ESPN por puesto: arquero, lateral derecho, centrales, lateral izquierdo y así cada línea."); return; }
+      aTxt.value = corr.concat(nuevas).join("\n"); pintarGrilla(); guardarASolo(aTxt.value);
       aviso("Traje de ESPN la alineación de " + nuevas.map((l) => l.split(/[:(]/)[0].trim()).join(" y ") + ". Ya quedó guardada: corregila en la grilla si hace falta.");
     } catch (e) {}
   };
@@ -1994,7 +2066,8 @@ VISTAS.accesos = (m) => {
 };
 
 /* ---------- Equipo: Mi perfil (todos), Equipo (madre) y Convocatorias ---------- */
-const ROLES_EQ = ["Relato", "Comentario", "Producción", "Estudios", "Vestuarios", "Operador estudios", "Operador estadio", "Locutor comercial", "Producción ejecutiva", "Conducción", "Co-conducción", "Apoyo"];
+const ROLES_EQ = ["Relato", "Comentario", "Producción", "Estudios", "Vestuarios", "Operador estudios", "Operador estadio", "Locutor comercial", "Producción ejecutiva", "Conducción", "Co-conducción", "Apoyo", "Director"];
+const ROLES_CONV = ROLES_EQ.filter((r) => r !== "Director");   // el Director no se convoca: recibe el resumen mensual
 const LOCACIONES = ["Estudio 13a0", "Estadio Centenario", "Gran Parque Central", "Estadio Campeón del Siglo", "Estadio Luis Franzini", "Estadio Luis Tróccoli",
   "Parque Alfredo Víctor Viera", "Estadio Jardines del Hipódromo", "Estadio Belvedere", "Parque Federico Omar Saroldi", "Parque Capurro", "Estadio Olímpico",
   "Parque Palermo", "Estadio Charrúa", "Parque Abraham Paladino", "Parque Osvaldo Roberto", "Parque Artigas (Las Piedras)", "Estadio Martínez Monegal (Canelones)",
@@ -2258,8 +2331,11 @@ const DEMO = (() => {
     miPerfil: () => ({ perfil: { email: "prueba", nombre: "Persona de prueba", roles: "Relato|Apoyo" }, ausencias: [{ id: "a1", desde: d(10), hasta: d(12), motivo: "enfermedad", nota: "" }] }),
     equipo: () => gente.map((p) => Object.assign({ celular: "099 000 000", cedula: "", foto: false, acred: false }, p)),
     leerRelevamiento: () => { return { fechas: [d(0)], actual: { fecha: d(0), actualizado: d(0) + " 18:02", lista: { fecha: d(0), generada: "18:02", nacionales: [{ id: "N1", titulo: "Peñarol confirmó el equipo para el clásico", link: "https://example.com", medio: "Ovación" }, { id: "N2", titulo: "La AUF definió los árbitros de la fecha", link: "https://example.com", medio: "Referí" }], internacionales: [{ id: "I1", titulo: "Valverde, figura en el triunfo del Real Madrid", link: "https://example.com", medio: "Marca" }], partidos: [{ competencia: "Champions League", lineas: [{ texto: "Real Madrid 🇺🇾 (Valverde) 2-1 Juventus · Final", uy: true }] }] }, eleccion: null } }; },
-    leerConvocatorias: () => ({ convocatorias: conv, puedeConvocar: true, roles: ROLES_EQ, convocables: gente }),
+    leerConvocatorias: () => ({ convocatorias: conv, puedeConvocar: true, roles: ROLES_CONV, convocables: gente, veResumen: true }),
     leerTitulares: () => DEMO_TIT.map((x) => Object.assign({}, x)),
+    resumenConvocatorias: (mes) => ({ mes, todos: true, puedeMandar: true, directores: [], personas: [{ email: "ana@ejemplo.com", nombre: "Ana Pérez", jornales: 2, acepta: 3, convocado: 3, rechaza: 0, pendiente: 0, cancelada: 0, detalle: [{ fecha: d(-5), partido: "Peñarol vs Nacional", competencia: "Campeonato Uruguayo", rol: "Relato", respuesta: "acepta" }, { fecha: d(-5), partido: "Previa en estudios", competencia: "", rol: "Relato", respuesta: "acepta" }, { fecha: d(-2), partido: "Defensor vs Danubio", competencia: "", rol: "Relato", respuesta: "acepta" }] },
+      { email: "beto@ejemplo.com", nombre: "Beto Gómez", jornales: 0, acepta: 0, convocado: 2, rechaza: 1, pendiente: 1, cancelada: 0, detalle: [{ fecha: d(-5), partido: "Peñarol vs Nacional", competencia: "", rol: "Comentario", respuesta: "rechaza" }, { fecha: d(2), partido: "Liverpool vs Wanderers", competencia: "", rol: "Comentario", respuesta: "pendiente" }] }] }),
+    mandarResumenDirector: () => 1,
     leerProducciones: () => DEMO_PR(),
     guardarPartidoProd: (x) => { const o = Object.assign({ id: "p" + Date.now() }, x); DEMO_PR.d.partidos.push(o); return { id: o.id, todo: DEMO_PR() }; },
     borrarPartidoProd: (id) => { DEMO_PR.d.partidos = DEMO_PR.d.partidos.filter((x) => x.id !== id); return DEMO_PR(); },
@@ -2488,12 +2564,52 @@ VISTAS.convocatorias = async (m) => {
 };
 function pintarConv(m) {
   sincroPre("leerConvocatorias", CV);
-  const tabs = [["calendario", "Calendario convocatorias"], ["mias", "Mis convocatorias"]].concat(CV.puedeConvocar ? [["generar", "Generar convocatoria"]] : []);
+  const tabs = [["calendario", "Calendario convocatorias"], ["mias", "Mis convocatorias"]].concat(CV.puedeConvocar ? [["generar", "Generar convocatoria"]] : [], [["resumen", CV.veResumen ? "Resumen y jornales" : "Mi resumen"]]);
   if (!tabs.find((t) => t[0] === subConv)) subConv = "calendario";
   const mias = CV.convocatorias.filter((c) => c.estado !== "cancelada" && c.fecha >= hoyISO() && c.gente.some((g) => g.email === D.yo && g.respuesta === "pendiente")).length;
   m.innerHTML = titulo("Convocatorias") + `<div class="subtabs">${tabs.map(([k, t]) => `<button class="chip${k === subConv ? " on" : ""}" data-t="${k}">${t}${k === "mias" && mias ? ` (${mias} sin responder)` : ""}</button>`).join("")}</div><div id="cv"></div>`;
   m.querySelectorAll(".subtabs .chip").forEach((b) => (b.onclick = () => { subConv = b.dataset.t; pintarConv(m); }));
-  ({ calendario: convCalendario, mias: convMias, generar: convGenerar })[subConv](m.querySelector("#cv"), m);
+  ({ calendario: convCalendario, mias: convMias, generar: convGenerar, resumen: convResumen })[subConv](m.querySelector("#cv"), m);
+}
+// resumen por integrante y por mes: convocatorias, respuestas y jornales (días distintos con una convocatoria aceptada)
+let mesResumen = "";
+async function convResumen(box) {
+  const hoyM = hoyISO().slice(0, 7); if (!mesResumen) mesResumen = hoyM;
+  const meses = []; for (let i = 0; i < 12; i++) { const d = new Date(+hoyM.slice(0, 4), +hoyM.slice(5, 7) - 1 - i, 1); meses.push(d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0")); }
+  const MES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "setiembre", "octubre", "noviembre", "diciembre"], mTxt = (m) => MES[+m.slice(5, 7) - 1] + " " + m.slice(0, 4);
+  box.innerHTML = `<div class="card form"><h2><i style="background:var(--amarillo)"></i>Resumen de convocatorias</h2>
+    <div class="fila-f" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center"><label style="flex:none">Mes <select id="rs-mes" style="width:auto">${meses.map((m) => `<option value="${m}"${m === mesResumen ? " selected" : ""}>${mTxt(m)}</option>`).join("")}</select></label>
+    <input id="rs-bus" type="search" placeholder="Buscar integrante…" style="flex:1;min-width:160px"><span id="rs-acc" style="display:flex;gap:8px;flex-wrap:wrap"></span></div>
+    <div id="rs-cuerpo"><div class="aviso">Cargando…</div></div></div>`;
+  box.querySelector("#rs-mes").onchange = (e) => { mesResumen = e.target.value; convResumen(box); };
+  let R; try { R = await srv("resumenConvocatorias", mesResumen); } catch (e) { box.querySelector("#rs-cuerpo").innerHTML = `<div class="aviso">${esc(e.message || String(e))}</div>`; return; }
+  const RESP = { acepta: ["✓ Fue", "acepta"], rechaza: ["✗ No pudo", "rechaza"], pendiente: ["… Sin responder", "pendiente"], cancelada: ["Cancelada", "pendiente"] };
+  const acc = box.querySelector("#rs-acc");
+  if (R.todos) {
+    const csvB = h(`<button class="btn sec chico">Copiar tabla</button>`);
+    csvB.onclick = async () => { const t = ["Integrante\tJornales\tAceptadas\tConvocado\tNo pudo\tSin responder"].concat(R.personas.map((p) => [p.nombre, p.jornales, p.acepta, p.convocado, p.rechaza, p.pendiente].join("\t"))).join("\n");
+      try { await navigator.clipboard.writeText(t); aviso("Tabla copiada: pegala en una planilla."); } catch (e) { aviso("No pude copiar.", true); } };
+    acc.appendChild(csvB);
+  }
+  if (R.puedeMandar) { const b = h(`<button class="btn am chico">✉ Mandar resumen al Director</button>`);
+    b.onclick = async () => { b.disabled = true; b.textContent = "Mandando…"; try { const n = await srv("mandarResumenDirector", mesResumen); aviso("Resumen de " + mTxt(mesResumen) + " enviado (" + n + (n === 1 ? " destinatario" : " destinatarios") + ")."); } catch (e) { aviso(e.message || String(e), true); } b.disabled = false; b.textContent = "✉ Mandar resumen al Director"; };
+    acc.appendChild(b); }
+  const cuerpo = box.querySelector("#rs-cuerpo");
+  const tot = R.personas.reduce((s, p) => ({ j: s.j + p.jornales, a: s.a + p.acepta, c: s.c + p.convocado, p: s.p + p.pendiente }), { j: 0, a: 0, c: 0, p: 0 });
+  const pinta = (q) => {
+    const L = R.personas.filter((p) => !q || sinT(p.nombre).includes(sinT(q)));
+    cuerpo.innerHTML = (R.todos ? `<div class="chips" style="margin:6px 0"><span class="estado-r acepta">${tot.j} jornales en total</span><span class="estado-r">${R.personas.length} integrantes</span><span class="estado-r">${tot.c} convocatorias</span>${tot.p ? `<span class="estado-r pendiente">${tot.p} sin responder</span>` : ""}</div>
+      <p class="ayuda">Jornal: un día con una convocatoria aceptada (dos el mismo día cuentan uno). El último día de cada mes, a las 21, el resumen le llega por mail a ${R.directores.length ? "<b>" + R.directores.map(esc).join(", ") + "</b> (Director)" : "<b>Trece A Cero</b>, porque todavía nadie tiene el rol Director (se asigna en Equipo)"}.</p>` : "")
+      + (L.length ? `<div style="overflow-x:auto"><table class="rs-tabla"><thead><tr><th>Integrante</th><th>Jornales</th><th>Aceptadas</th><th>Convocado</th><th>No pudo</th><th>Sin resp.</th></tr></thead><tbody>${L.map((p, i) => `<tr class="rs-f" data-i="${R.personas.indexOf(p)}"><td><b>${esc(p.nombre)}</b> <small>▾</small></td><td class="n"><b>${p.jornales}</b></td><td class="n">${p.acepta}</td><td class="n">${p.convocado}</td><td class="n">${p.rechaza}</td><td class="n">${p.pendiente}</td></tr>`).join("")}</tbody></table></div>`
+        : `<div class="aviso">${R.personas.length ? "Nadie con ese nombre." : "No hubo convocatorias en " + mTxt(mesResumen) + "."}</div>`);
+    cuerpo.querySelectorAll(".rs-f").forEach((tr) => (tr.onclick = () => {
+      const sig = tr.nextElementSibling; if (sig && sig.classList.contains("rs-det")) { sig.remove(); return; }
+      const p = R.personas[+tr.dataset.i];
+      tr.insertAdjacentHTML("afterend", `<tr class="rs-det"><td colspan="6">${p.detalle.map((d) => `<div class="g" style="display:flex;gap:8px;flex-wrap:wrap;padding:3px 0"><b style="min-width:92px">${esc(fechaTxt(d.fecha))}</b><span>${esc(d.partido)}${d.competencia ? ` <small>· ${esc(d.competencia)}</small>` : ""}</span><span class="r">${esc(d.rol)}</span><span class="estado-r ${RESP[d.respuesta][1]}" style="margin-left:auto">${RESP[d.respuesta][0]}</span></div>`).join("")}</td></tr>`);
+    }));
+  };
+  box.querySelector("#rs-bus").oninput = (e) => pinta(e.target.value);
+  pinta("");
 }
 function detalleConv(c, m) {
   const cuenta = { acepta: 0, rechaza: 0, pendiente: 0 }; c.gente.forEach((g) => cuenta[g.respuesta]++);
@@ -2598,7 +2714,7 @@ function convGenerar(cont, m) {
     <input type="text" name="loc-otra" placeholder="¿Dónde?" hidden>
     <div class="dos"><label>Horario partido<input type="time" name="hora"></label><label>Horario previa<input type="time" name="previa"><span class="ayuda">Sola: 1 h 30 antes del partido. Se puede cambiar.</span></label></div>
     <div class="botonera"><button type="button" class="btn sec chico" id="g-rep">↻ Repetir el equipo de la última convocatoria</button></div>
-    <div class="grupo"><b>Roles</b><div class="chips" id="g-roles">${ROLES_EQ.concat(["Otro"]).map((r) => `<button class="rol-chip" data-r="${esc(r)}">${esc(r)}</button>`).join("")}</div>
+    <div class="grupo"><b>Roles</b><div class="chips" id="g-roles">${ROLES_CONV.concat(["Otro"]).map((r) => `<button class="rol-chip" data-r="${esc(r)}">${esc(r)}</button>`).join("")}</div>
       <input type="text" id="g-otro" placeholder="Explicá el rol «Otro» (ej.: chofer, fotógrafo)" hidden><div id="g-bloques" style="display:flex;flex-direction:column;gap:10px"></div></div>
     <label>Notas para el mail (opcional)<textarea name="notas" rows="2" placeholder="Ej.: llevar acreditación, punto de encuentro"></textarea></label>
     <datalist id="dl-eq"></datalist><datalist id="dl-comp"><option>Campeonato Uruguayo</option><option>Copa AUF Uruguay</option><option>Copa Libertadores</option><option>Copa Sudamericana</option><option>Selección Uruguaya</option></datalist>
@@ -2625,7 +2741,7 @@ function convGenerar(cont, m) {
   const abiertos = new Set(), emergencia = new Set();   // emergencia: "rol|email" elegidos sin tener el rol
   function pintarBloques() {
     bloques.innerHTML = "";
-    ROLES_EQ.concat(["Otro"]).filter((r) => elegidos[r]).forEach((r) => {
+    ROLES_CONV.concat(["Otro"]).filter((r) => elegidos[r]).forEach((r) => {
       const todos = (CV.convocables || []).slice().sort((a, b) => a.nombre.localeCompare(b.nombre)), libre = r === "Otro";
       const con = libre ? todos : todos.filter((p) => p.roles.includes(r)), sin = libre ? [] : todos.filter((p) => !p.roles.includes(r));
       const B = h(`<div class="rolbloque"><b>${esc(libre ? "Otro" + (otroTxt ? ": " + otroTxt : "") : r)}</b><div class="chips"></div></div>`), Ch = B.querySelector(".chips");
@@ -2651,7 +2767,7 @@ function convGenerar(cont, m) {
     if (!ult) { aviso("Todavía no hay convocatorias para repetir", true); return; }
     Object.keys(elegidos).forEach((k) => delete elegidos[k]); emergencia.clear(); let afuera = 0;
     ult.gente.forEach((g) => { const p = (CV.convocables || []).find((x) => x.email === g.email); if (!p) return; if (N.fecha && ausenteEl(p, N.fecha)) { afuera++; return; }
-      const r = ROLES_EQ.includes(g.rol) ? g.rol : "Otro"; if (r === "Otro") { otroTxt = String(g.rol).replace(/^Otro:?\s*/i, ""); otro.value = otroTxt; otro.hidden = false; }
+      const r = ROLES_CONV.includes(g.rol) ? g.rol : "Otro"; if (r === "Otro") { otroTxt = String(g.rol).replace(/^Otro:?\s*/i, ""); otro.value = otroTxt; otro.hidden = false; }
       (elegidos[r] = elegidos[r] || new Set()).add(g.email); if (r !== "Otro" && !p.roles.includes(r)) { emergencia.add(r + "|" + g.email); abiertos.add(r); } });
     F.querySelectorAll("#g-roles .rol-chip").forEach((b) => b.classList.toggle("on", !!elegidos[b.dataset.r]));
     pintarBloques(); aviso("Cargué el equipo de " + partidoTxt(ult) + (afuera ? " · " + afuera + " quedaron afuera por ausencia" : "") + ". Revisalo antes de enviar.");
