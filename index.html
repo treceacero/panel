@@ -2383,7 +2383,7 @@ const DEMO = (() => {
 let subConv = "calendario", mesConv = null, convSel = null, CV = null, sugPartidos = null;
 const NOMBRES_AUF = { "d. maldonado": "Deportivo Maldonado", "m.c. torque": "Montevideo City Torque", "def. sporting": "Defensor Sporting", "wanderers": "Montevideo Wanderers", "central espanol": "Central Español", "plaza colonia": "Plaza Colonia", "cerro largo": "Cerro Largo" };
 const nombreDe = (n) => NOMBRES_AUF[sinT(n).trim()] || n;   // la AUF abrevia algunos nombres
-async function partidosProximos() {   // próximos partidos (ESPN) para sugerir en la convocatoria
+async function partidosProximos(parcial) {   // próximos partidos (AUF + ESPN) para sugerir en la convocatoria; «parcial» recibe antes los de ESPN
   if (sugPartidos) return sugPartidos;
   const ligas = [["uru.1", "Campeonato Uruguayo"], ["conmebol.libertadores", "Copa Libertadores"], ["conmebol.sudamericana", "Copa Sudamericana"]];
   const ymd = (d) => d.toLocaleDateString("en-CA", { timeZone: "America/Montevideo" });
@@ -2398,7 +2398,10 @@ async function partidosProximos() {   // próximos partidos (ESPN) para sugerir 
   }
   // la web de la AUF: día, hora y estadio confirmados del Uruguayo (ESPN a veces no los carga hasta último momento). Si los dos tienen el partido, manda la AUF.
   const auf = srv("fixtureAUF").then((L) => (Array.isArray(L) ? L : []).map((p) => Object.assign({}, p, { local: nombreDe(p.local), visitante: nombreDe(p.visitante) }))).catch(() => []);
-  const [deESPN, deAUF] = await Promise.all([Promise.all(pedidos).then((x) => x.flat()), auf]);
+  const pendientes = (L) => L.filter((p) => p.local && !p.hecho).sort((a, b) => (a.fecha + a.hora).localeCompare(b.fecha + b.hora));
+  const deESPN = (await Promise.all(pedidos)).flat();
+  if (parcial) { let listo = false; auf.then(() => (listo = true)); await Promise.resolve(); if (!listo) try { parcial(pendientes(deESPN)); } catch (e) {} }
+  const deAUF = await auf;
   const mismoP = (a, b) => a.fecha === b.fecha && [[a.local, b.local], [a.visitante, b.visitante]].every(([x, y]) => { const p = nEq(x), q = nEq(y); return p && q && (p === q || p.includes(q) || q.includes(p)); });
   const vistos = new Set();
   sugPartidos = deAUF.concat(deESPN.filter((e) => !e.hecho && !deAUF.some((a) => mismoP(a, e))))
@@ -2850,11 +2853,11 @@ function convGenerar(cont, m) {
       subConv = "calendario"; convSel = nueva && nueva.id; mesConv = d.fecha.slice(0, 7); pintarConv(m); }
     catch (x) { aviso(x.message || String(x), true); e.target.disabled = false; e.target.textContent = "Enviar convocatoria"; }
   };
-  partidosProximos().then((P) => {
+  const pintarSug = (P, faltaAUF) => {
     const S = cont.querySelector("#gs"); if (!S) return;
     const eqs = new Set(); P.forEach((p) => { eqs.add(p.local); eqs.add(p.visitante); });
     F.querySelector("#dl-eq").innerHTML = [...eqs].filter(Boolean).sort().map((x) => `<option>${esc(x)}</option>`).join("");
-    S.innerHTML = P.length ? "" : `<span style="color:var(--gris);font-weight:600">No encontré partidos en las próximas 3 semanas. Completá a mano.</span>`;
+    S.innerHTML = (faltaAUF ? `<span style="color:var(--gris);font-weight:600;font-size:13px">Buscando el fixture confirmado en la web de la AUF…</span>` : "") + (P.length || faltaAUF ? "" : `<span style="color:var(--gris);font-weight:600">No encontré partidos en las próximas 3 semanas. Completá a mano.</span>`);
     P.forEach((p) => {
       const b = h(`<button><b>${esc(corta(p.fecha))}</b>${esc(p.local)} vs ${esc(p.visitante)}<small>${esc(p.hora)} · ${esc(p.competencia)}<br>${esc(p.locacion)}</small></button>`);
       b.onclick = () => { S.querySelectorAll("button").forEach((x) => x.classList.toggle("on", x === b));
@@ -2862,7 +2865,8 @@ function convGenerar(cont, m) {
         ["fecha", "local", "visitante", "competencia", "hora"].forEach((k) => (campo(k).value = N[k])); ponerPrevia(); ponerLoc(p.locacion); pintarBloques(); F.scrollIntoView({ behavior: "smooth" }); };
       S.appendChild(b);
     });
-  });
+  };
+  partidosProximos((parcial) => pintarSug(parcial, true)).then((P) => pintarSug(P, false));   // primero ESPN; cuando llega la AUF, la lista completa
 }
 
 /* ---------- Noticias del día: la lista que arma la tarea de las 18:00 y la elección (radio / OBS) ---------- */
