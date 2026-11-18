@@ -298,6 +298,7 @@
   .pv-f.auto { grid-template-columns:1fr; grid-template-areas:"b" "s"; }
   .pv-secs { display:grid; grid-template-columns:1fr 1fr; gap:8px; } .pv-secs select { width:100%; }
   @media (max-width:760px) { .pv-secs { grid-template-columns:1fr; } .pv-f { grid-template-columns:52px 1fr; grid-template-areas:"d b" "d s" "d e"; } }
+  .tt-tabla input { width:100%; min-width:0; padding:5px 6px; font:inherit; } .tt-tabla input.ch { width:64px; text-align:center; } .tt-tabla input.aj.on { outline:2px solid var(--amarillo); background:rgba(249,190,2,.12); font-weight:800; } .tt-tabla td:nth-child(2) { min-width:150px; }
   .g-canchita { position:relative; width:100%; max-width:340px; aspect-ratio:4/3.4; margin:4px auto 2px; background:repeating-linear-gradient(0deg,#2f8f4e 0 12.5%,#2a8447 12.5% 25%); border:2px solid #fff; box-shadow:0 0 0 1px var(--linea); touch-action:none; user-select:none; overflow:hidden; }
   .g-canchita::before { content:""; position:absolute; left:28%; right:28%; bottom:0; height:18%; border:2px solid rgba(255,255,255,.75); border-bottom:0; }
   .g-canchita::after { content:""; position:absolute; left:40%; right:40%; top:-12%; height:24%; border:2px solid rgba(255,255,255,.75); border-radius:50%; }
@@ -1896,6 +1897,7 @@ function tablaEditable(cont, t, cols, opc = {}) {
 }
 VISTAS.ticker = (m) => {
   m.innerHTML = titulo("Ticker") + `<div class="cuerpo" style="grid-template-columns:minmax(420px,1fr) minmax(420px,1fr)"><div style="display:flex;flex-direction:column;gap:20px"><div class="card form" id="fa"></div><div class="card form" id="fpr"></div></div><div class="card vista" id="vt"></div></div>
+    <div class="card form" id="ftab"></div>
     <div class="card form todo-ticker"><h2><i style="background:var(--amarillo)"></i>Todo el material del día</h2><span class="ayuda" style="font-size:12px;color:var(--gris);font-weight:600">Todos los bloques que pasan por la cinta, uno abajo del otro. Arriba podés elegir otro día de la semana.</span>
       <iframe src="${conVer(WEB + "ticker.html?vista")}" title="Todo el material del ticker" loading="lazy"></iframe><a href="${conVer(WEB + "ticker.html?vista")}" target="_blank" style="font-weight:700">Abrir en pantalla completa ↗</a></div>
     <div class="card form todo-ticker"><h2><i style="background:var(--rojo)"></i>Resultados de la tanda</h2><span class="ayuda" style="font-size:12px;color:var(--gris);font-weight:600">Los partidos que van rotando en la tanda del OBS, todos juntos y en el mismo orden. Se actualiza solo.</span>
@@ -1912,7 +1914,41 @@ VISTAS.ticker = (m) => {
   const DIAS = ["orden", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"];
   const tp = tablaEditable(P, D.programa, DIAS, { opciones: Object.fromEntries(DIAS.slice(1).map((d) => [d, bloques])), titulos: { orden: "#" } });
   const pp = h(`<div class="pie"><button class="btn am">Guardar el programa</button></div>`); pp.firstChild.onclick = () => guardar("guardarTabla", "programa", tp.filas().map((f, i) => [String(i + 1), ...f.slice(1)]), 8).then(recargar).catch(() => {}); P.appendChild(pp);
+  tablasTicker(m.querySelector("#ftab"));
 };
+// tablas del ticker (pestaña tablas_uruguay): se traen solas de la AUF todos los días a las 7; acá se corrigen.
+// «Corrección»: puntos a sumar o restar (sanciones, partidos que la AUF todavía no cargó); no se pisa con la actualización automática.
+const COLS_TAB = ["tabla", "pos", "equipo", "pj", "pts", "dg", "promedio", "zona", "logo", "ajuste", "actualizado"];
+let tabSel = "anual";
+function tablasTicker(F) {
+  const T0 = D.tablas || [[]], c = T0[0].map((x) => String(x).trim().toLowerCase());
+  const filas = T0.slice(1).map((f) => Object.fromEntries(COLS_TAB.map((k) => [k, c.indexOf(k) >= 0 ? String(f[c.indexOf(k)] || "") : ""]))).filter((x) => x.tabla);
+  const NOMBRES_T = { anual: "Tabla anual", promedios: "Descenso (promedios)", segunda: "Segunda División" };
+  const tablas = [...new Set(filas.map((x) => x.tabla))].sort((a, b) => Object.keys(NOMBRES_T).indexOf(a) - Object.keys(NOMBRES_T).indexOf(b));
+  if (!tablas.includes(tabSel)) tabSel = tablas[0] || "anual";
+  const n = (v) => { const x = parseFloat(String(v || "").replace(",", ".")); return isNaN(x) ? 0 : x; };
+  const act = filas.map((x) => x.actualizado).filter(Boolean).sort().pop() || "";
+  const pinta = () => {
+    const L = filas.filter((x) => x.tabla === tabSel).sort((a, b) => n(a.pos) - n(b.pos)), prom = tabSel === "promedios";
+    F.innerHTML = `<h2><i style="background:var(--verde)"></i>Tablas del ticker</h2>
+      <div class="aviso">Se traen solas de la web de la AUF todos los días a las 7${act ? ` (última: <b>${esc(act)}</b>)` : ""}. Si un puntaje está mal, poné la diferencia en <b>Corrección</b> (por ejemplo −3 por una sanción, o +3 por un partido que la AUF todavía no cargó): se suma en el ticker, la tabla se reordena y la actualización automática no la borra. Los demás datos también se pueden cambiar, pero la próxima actualización de la AUF los vuelve a poner.</div>
+      <div class="subtabs">${tablas.map((t) => `<button class="chip${t === tabSel ? " on" : ""}" data-t="${t}">${esc(NOMBRES_T[t] || t)}</button>`).join("")}</div>
+      <div style="overflow-x:auto"><table class="rs-tabla tt-tabla"><thead><tr><th>#</th><th>Equipo</th><th>PJ</th><th>Pts${prom ? " (2 años)" : ""}</th><th>Corrección</th><th>Total</th><th>${prom ? "Promedio" : "Dif."}</th></tr></thead><tbody>
+      ${L.map((x) => { const tot = n(x.pts) + n(x.ajuste); return `<tr data-i="${filas.indexOf(x)}"><td class="n">${esc(x.pos)}</td><td><input data-k="equipo" value="${esc(x.equipo)}"></td><td><input data-k="pj" inputmode="numeric" value="${esc(x.pj)}" class="ch"></td><td><input data-k="pts" inputmode="numeric" value="${esc(x.pts)}" class="ch"></td>
+        <td><input data-k="ajuste" inputmode="numeric" value="${esc(x.ajuste)}" placeholder="0" class="ch aj${n(x.ajuste) ? " on" : ""}"></td><td class="n tot"><b>${tot}</b></td><td>${prom ? `<span class="n">${n(x.pj) ? (tot / n(x.pj)).toFixed(3).replace(".", ",") : ""}</span>` : `<input data-k="dg" inputmode="numeric" value="${esc(x.dg)}" class="ch">`}</td></tr>`; }).join("")}</tbody></table></div>
+      <div class="pie" style="flex-wrap:wrap;gap:8px"><button class="btn am" id="tt-ok">Guardar tablas</button><button class="btn sec" id="tt-auf">⟳ Traer de la AUF ahora</button></div>`;
+    F.querySelectorAll(".subtabs .chip").forEach((b) => (b.onclick = () => { tabSel = b.dataset.t; pinta(); }));
+    F.querySelectorAll("tbody input").forEach((inp) => (inp.oninput = () => {
+      const x = filas[+inp.closest("tr").dataset.i]; x[inp.dataset.k] = inp.value.trim().replace(/[\u2212\u2013]/g, "-").replace(/^\+/, "").replace(",", ".");
+      const tr = inp.closest("tr"), tot = n(x.pts) + n(x.ajuste); tr.querySelector(".tot b").textContent = tot; inp.classList.toggle("on", inp.dataset.k === "ajuste" && !!n(x.ajuste));
+    }));
+    F.querySelector("#tt-ok").onclick = (ev) => { ev.target.disabled = true;
+      guardar("guardarTabla", "tablas_uruguay", filas.map((x) => COLS_TAB.map((k) => x[k] || "")), COLS_TAB.length).then(() => { aviso("Tablas guardadas: el ticker las toma en un par de minutos."); recargar(); }).catch(() => { ev.target.disabled = false; }); };
+    F.querySelector("#tt-auf").onclick = async (ev) => { const b = ev.target; b.disabled = true; b.textContent = "Trayendo de la AUF…";
+      try { const r = await srv("actualizarTablasAUF"); D.tablas = r.tablas; aviso("Listo: " + r.resumen); tablasTicker(F); } catch (e) { aviso(e.message || String(e), true); b.disabled = false; b.textContent = "⟳ Traer de la AUF ahora"; } };
+  };
+  pinta();
+}
 VISTAS.correcciones = (m) => {
   m.innerHTML = titulo("Correcciones") + `<div class="card form" id="fc"></div>`;
   const F = m.querySelector("#fc"); F.innerHTML = `<h2><i style="background:var(--rojo)"></i>Correcciones del ticker</h2><div class="aviso">Sirven para pisar lo que viene automático: esconder un partido, cambiar un nombre, corregir un marcador.</div>`;
