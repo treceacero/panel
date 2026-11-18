@@ -2367,6 +2367,7 @@ const DEMO = (() => {
     resumenConvocatorias: (mes) => ({ mes, todos: true, puedeMandar: true, directores: [], personas: [{ email: "ana@ejemplo.com", nombre: "Ana Pérez", jornales: 2, acepta: 3, convocado: 3, rechaza: 0, pendiente: 0, cancelada: 0, detalle: [{ fecha: d(-5), partido: "Peñarol vs Nacional", competencia: "Campeonato Uruguayo", rol: "Relato", respuesta: "acepta" }, { fecha: d(-5), partido: "Previa en estudios", competencia: "", rol: "Relato", respuesta: "acepta" }, { fecha: d(-2), partido: "Defensor vs Danubio", competencia: "", rol: "Relato", respuesta: "acepta" }] },
       { email: "beto@ejemplo.com", nombre: "Beto Gómez", jornales: 0, acepta: 0, convocado: 2, rechaza: 1, pendiente: 1, cancelada: 0, detalle: [{ fecha: d(-5), partido: "Peñarol vs Nacional", competencia: "", rol: "Comentario", respuesta: "rechaza" }, { fecha: d(2), partido: "Liverpool vs Wanderers", competencia: "", rol: "Comentario", respuesta: "pendiente" }] }] }),
     mandarResumenDirector: () => 1,
+    fixtureAUF: () => [{ fecha: d(1), hora: "16:30", local: "Peñarol", visitante: "Cerro Largo", competencia: "Campeonato Uruguayo", locacion: "Campeón del Siglo", fuente: "AUF" }, { fecha: d(2), hora: "16:30", local: "Cerro", visitante: "Nacional", competencia: "Campeonato Uruguayo", locacion: "Estadio Monumental Luis Tróccoli", fuente: "AUF" }, { fecha: d(2), hora: "16:30", local: "Boston River", visitante: "D. Maldonado", competencia: "Campeonato Uruguayo", locacion: "Campeones Olímpicos de Florida", fuente: "AUF" }],
     leerProducciones: () => DEMO_PR(),
     guardarPartidoProd: (x) => { const o = Object.assign({ id: "p" + Date.now() }, x); DEMO_PR.d.partidos.push(o); return { id: o.id, todo: DEMO_PR() }; },
     borrarPartidoProd: (id) => { DEMO_PR.d.partidos = DEMO_PR.d.partidos.filter((x) => x.id !== id); return DEMO_PR(); },
@@ -2380,6 +2381,8 @@ const DEMO = (() => {
 
 /* ---- Convocatorias ---- */
 let subConv = "calendario", mesConv = null, convSel = null, CV = null, sugPartidos = null;
+const NOMBRES_AUF = { "d. maldonado": "Deportivo Maldonado", "m.c. torque": "Montevideo City Torque", "def. sporting": "Defensor Sporting", "wanderers": "Montevideo Wanderers", "central espanol": "Central Español", "plaza colonia": "Plaza Colonia", "cerro largo": "Cerro Largo" };
+const nombreDe = (n) => NOMBRES_AUF[sinT(n).trim()] || n;   // la AUF abrevia algunos nombres
 async function partidosProximos() {   // próximos partidos (ESPN) para sugerir en la convocatoria
   if (sugPartidos) return sugPartidos;
   const ligas = [["uru.1", "Campeonato Uruguayo"], ["conmebol.libertadores", "Copa Libertadores"], ["conmebol.sudamericana", "Copa Sudamericana"]];
@@ -2393,8 +2396,13 @@ async function partidosProximos() {   // próximos partidos (ESPN) para sugerir 
                local: loc && loc.team.displayName, visitante: vis && vis.team.displayName, competencia: nom, locacion: (co.venue && co.venue.fullName) || "", hecho: ev.status && ev.status.type && ev.status.type.completed };
     })).catch(() => [])));
   }
+  // la web de la AUF: día, hora y estadio confirmados del Uruguayo (ESPN a veces no los carga hasta último momento). Si los dos tienen el partido, manda la AUF.
+  const auf = srv("fixtureAUF").then((L) => (Array.isArray(L) ? L : []).map((p) => Object.assign({}, p, { local: nombreDe(p.local), visitante: nombreDe(p.visitante) }))).catch(() => []);
+  const [deESPN, deAUF] = await Promise.all([Promise.all(pedidos).then((x) => x.flat()), auf]);
+  const mismoP = (a, b) => a.fecha === b.fecha && [[a.local, b.local], [a.visitante, b.visitante]].every(([x, y]) => { const p = nEq(x), q = nEq(y); return p && q && (p === q || p.includes(q) || q.includes(p)); });
   const vistos = new Set();
-  sugPartidos = (await Promise.all(pedidos)).flat().filter((p) => p.local && !p.hecho && !vistos.has(p.fecha + p.local) && vistos.add(p.fecha + p.local)).sort((a, b) => (a.fecha + a.hora).localeCompare(b.fecha + b.hora));
+  sugPartidos = deAUF.concat(deESPN.filter((e) => !e.hecho && !deAUF.some((a) => mismoP(a, e))))
+    .filter((p) => p.local && !vistos.has(p.fecha + p.local) && vistos.add(p.fecha + p.local)).sort((a, b) => (a.fecha + a.hora).localeCompare(b.fecha + b.hora));
   return sugPartidos;
 }
 /* ---- Producciones ----
