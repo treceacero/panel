@@ -1686,7 +1686,13 @@ VISTAS.partido = (m) => {
     const lineas = (st.alineacion || "").split("\n").filter((l) => l.trim()), juega = (l) => { const e = nEq(String(l).replace(/^([^:]*?)\s*\(([^)]*[A-Za-zÁÉÍÓÚáéíóúñÑ][^)]*)\)/, "$1 $2").split(/[:(]/)[0]); return ok.some((x) => e && (e === x || e.includes(x) || x.includes(e))); };
     const quedan = lineas.filter(juega); if (quedan.length === lineas.length) return;
     const fuera = lineas.filter((l) => !juega(l)).map((l) => String(l).split(/[:(]/)[0].trim());
-    guardarA(quedan.join("\n")); aviso("Saqué la alineación vieja de " + fuera.join(" y ") + ": no juega este partido");
+    // nunca se borra sola (otra PC puede tener elegido otro partido): se avisa y se saca solo si alguien toca el botón
+    GA.querySelectorAll(".a-viejas").forEach((x) => x.remove());
+    const av = h(`<div class="aviso a-viejas" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">Hay alineación cargada de <b>${esc(fuera.join(" y "))}</b>, que no juega${a && b ? ` ${esc(a)} – ${esc(b)}` : " este partido"}. <button class="btn sec chico">Sacarla</button><button class="btn sec chico">Dejarla</button></div>`);
+    const [bs, bd] = av.querySelectorAll("button");
+    bs.onclick = () => { const L = (st.alineacion || "").split("\n").filter((l) => l.trim() && juega(l)); guardarA(L.join("\n")); av.remove(); aviso("Listo: saqué la alineación de " + fuera.join(" y ")); };
+    bd.onclick = () => av.remove();
+    GA.insertBefore(av, GA.children[1] || null);
   };
   if (manual) limpiarViejas(st.local, st.visitante);
   // si ESPN ya tiene la alineación (copas, Selección y a veces el Uruguayo), se copia acá para verla y corregirla; lo que ya está cargado no se toca
