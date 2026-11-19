@@ -2155,7 +2155,9 @@ VISTAS.accesos = (m) => {
 };
 
 /* ---------- Equipo: Mi perfil (todos), Equipo (madre) y Convocatorias ---------- */
-const ROLES_EQ = ["Relato", "Comentario", "Producción", "Estudios", "Vestuarios", "Operador estudios", "Operador estadio", "Locutor comercial", "Producción ejecutiva", "Conducción", "Co-conducción", "Apoyo", "Director"];
+const ROLES_PARTIDO = ["Relato", "Comentario", "Producción", "Estudios", "Vestuarios", "Operador estudios", "Operador estadio", "Locutor comercial", "Producción ejecutiva", "Conducción", "Co-conducción", "Apoyo"];
+const ROLES_PROG = ["Conducción", "Co-conducción", "Producción", "Producción ejecutiva", "Switchmaster", "Operador de controles", "Columnas", "Informes", "Notas", "Apoyo"];   // convocatoria del programa
+const ROLES_EQ = ROLES_PARTIDO.concat(ROLES_PROG.filter((r) => !ROLES_PARTIDO.includes(r)), ["Director"]);
 const ROLES_CONV = ROLES_EQ.filter((r) => r !== "Director");   // el Director no se convoca: recibe el resumen mensual
 const LOCACIONES = ["Estudio 13a0", "Estadio Centenario", "Gran Parque Central", "Estadio Campeón del Siglo", "Estadio Luis Franzini", "Estadio Luis Tróccoli",
   "Parque Alfredo Víctor Viera", "Estadio Jardines del Hipódromo", "Estadio Belvedere", "Parque Federico Omar Saroldi", "Parque Capurro", "Estadio Olímpico",
@@ -2377,6 +2379,10 @@ VISTAS.equipo = async (m) => {
       be.onclick = async () => { be.disabled = true; try { await guardar("habilitarEdicionPerfiles", p.email, !p.editaPerfiles); caduca("equipo"); ir("equipo"); } catch (e) { be.disabled = false; } };
       it.querySelector(".ver").parentNode.appendChild(be);
     }
+    // a quién le llegan los mails de noticias (lista del relevamiento, fotos para revisar, avisos de la rutina)
+    const bm = h(`<button class="btn ${p.mailNoticias ? "ok" : "sec"} chico" title="Lista diaria del relevamiento, fotos para revisar y avisos de noticias">${p.mailNoticias ? "✉ Recibe las noticias (tocá para sacárselas)" : "✉ Mandarle las noticias"}</button>`);
+    bm.onclick = async () => { bm.disabled = true; try { await guardar("cambiarMailNoticias", p.email, !p.mailNoticias); caduca("equipo"); ir("equipo"); } catch (e) { bm.disabled = false; } };
+    it.querySelector(".ver").parentNode.appendChild(bm);
     const fi = it.querySelector(".ficha");
     it.querySelector(".ver").onclick = (e) => {
       fi.hidden = !fi.hidden; e.target.textContent = fi.hidden ? "Ver ficha" : "Cerrar ficha";
@@ -2425,6 +2431,7 @@ const DEMO = (() => {
     resumenConvocatorias: (mes) => ({ mes, todos: true, puedeMandar: true, directores: [], personas: [{ email: "ana@ejemplo.com", nombre: "Ana Pérez", jornales: 2, acepta: 3, convocado: 3, rechaza: 0, pendiente: 0, cancelada: 0, detalle: [{ fecha: d(-5), partido: "Peñarol vs Nacional", competencia: "Campeonato Uruguayo", rol: "Relato", respuesta: "acepta" }, { fecha: d(-5), partido: "Previa en estudios", competencia: "", rol: "Relato", respuesta: "acepta" }, { fecha: d(-2), partido: "Defensor vs Danubio", competencia: "", rol: "Relato", respuesta: "acepta" }] },
       { email: "beto@ejemplo.com", nombre: "Beto Gómez", jornales: 0, acepta: 0, convocado: 2, rechaza: 1, pendiente: 1, cancelada: 0, detalle: [{ fecha: d(-5), partido: "Peñarol vs Nacional", competencia: "", rol: "Comentario", respuesta: "rechaza" }, { fecha: d(2), partido: "Liverpool vs Wanderers", competencia: "", rol: "Comentario", respuesta: "pendiente" }] }] }),
     mandarResumenDirector: () => 1,
+    guardarPlantillaPrograma: (d) => { DEMO.__pl = d; return { convocatorias: conv, puedeConvocar: true, roles: ROLES_CONV, convocables: gente, veResumen: true, plantillaPrograma: d }; },
     fixtureAUF: () => [{ fecha: d(1), hora: "16:30", local: "Peñarol", visitante: "Cerro Largo", competencia: "Campeonato Uruguayo", locacion: "Campeón del Siglo", fuente: "AUF" }, { fecha: d(2), hora: "16:30", local: "Cerro", visitante: "Nacional", competencia: "Campeonato Uruguayo", locacion: "Estadio Monumental Luis Tróccoli", fuente: "AUF" }, { fecha: d(2), hora: "16:30", local: "Boston River", visitante: "D. Maldonado", competencia: "Campeonato Uruguayo", locacion: "Campeones Olímpicos de Florida", fuente: "AUF" }],
     leerProducciones: () => DEMO_PR(),
     guardarPartidoProd: (x) => { const o = Object.assign({ id: "p" + Date.now() }, x); DEMO_PR.d.partidos.push(o); return { id: o.id, todo: DEMO_PR() }; },
@@ -2836,20 +2843,25 @@ function convMias(cont, m) {
   cont.style.cssText = "display:flex;flex-direction:column;gap:16px";
   mias.forEach((c) => cont.appendChild(detalleConv(c, m)));
 }
+let tipoConv = "partido";   // «partido» o «programa»
 function convGenerar(cont, m) {
-  const N = { fecha: "", local: "", visitante: "", competencia: "", locacion: "", previa: "", hora: "", notas: "" }, elegidos = {};   // elegidos: rol → Set(emails)
+  const prog = tipoConv === "programa", RR = prog ? ROLES_PROG : ROLES_PARTIDO;
+  const N = { fecha: "", local: prog ? "Programa 13a0" : "", visitante: "", competencia: prog ? "Programa" : "", locacion: "", previa: "", hora: "", notas: "" }, elegidos = {};   // elegidos: rol → Set(emails)
+  const orden = [];   // roles en el orden en que se tocaron: el último arriba
   let otroTxt = "";
   cont.innerHTML = `<div class="eq-grid"><div class="card form" id="gf"></div><div class="card form"><h2><i style="background:var(--celeste)"></i>Próximos partidos</h2><span class="ayuda" style="font-size:12px;color:var(--gris);font-weight:600">Tocá uno para completar día, equipos, hora y estadio.</span><div class="sug" id="gs"><span style="color:var(--gris);font-weight:600">Buscando partidos…</span></div></div></div>`;
   const F = cont.querySelector("#gf");
   F.innerHTML = `<h2><i style="background:var(--amarillo)"></i>Generar convocatoria</h2>
+    <div class="chips" id="g-tipo"><button class="chip${prog ? "" : " on"}" data-t="partido">⚽ Partido</button><button class="chip${prog ? " on" : ""}" data-t="programa">🎙 Programa</button></div>
     <label>Día<input type="date" name="fecha" min="${hoyISO()}"></label>
-    <div class="dos"><label>Local (o qué es)<input type="text" name="local" list="dl-eq" placeholder="Peñarol"></label><label>Visitante<input type="text" name="visitante" list="dl-eq" placeholder="Nacional"></label></div>
-    <label>Competencia<input type="text" name="competencia" list="dl-comp" placeholder="Campeonato Uruguayo"></label>
+    <div class="dos"${prog ? " hidden" : ""}><label>Local (o qué es)<input type="text" name="local" list="dl-eq" placeholder="Peñarol"></label><label>Visitante<input type="text" name="visitante" list="dl-eq" placeholder="Nacional"></label></div>
+    ${prog ? `<label>Programa<input type="text" name="local-prog" value="Programa 13a0"></label>` : ""}
+    <label${prog ? " hidden" : ""}>Competencia<input type="text" name="competencia" list="dl-comp" placeholder="Campeonato Uruguayo"></label>
     <label>Locación<select name="loc-sel"><option value="">Elegí…</option>${LOCACIONES.map((l) => `<option>${esc(l)}</option>`).join("")}<option value="otra">Otra (escribir)</option></select></label>
     <input type="text" name="loc-otra" placeholder="¿Dónde?" hidden>
-    <div class="dos"><label>Horario partido<input type="time" name="hora"></label><label>Horario previa<input type="time" name="previa"><span class="ayuda">Sola: 1 h 30 antes del partido. Se puede cambiar.</span></label></div>
-    <div class="botonera"><button type="button" class="btn sec chico" id="g-rep">↻ Repetir el equipo de la última convocatoria</button></div>
-    <div class="grupo"><b>Roles</b><div class="chips" id="g-roles">${ROLES_CONV.concat(["Otro"]).map((r) => `<button class="rol-chip" data-r="${esc(r)}">${esc(r)}</button>`).join("")}</div>
+    <div class="dos"><label>${prog ? "Horario del programa" : "Horario partido"}<input type="time" name="hora"></label><label>${prog ? "Llegada" : "Horario previa"}<input type="time" name="previa">${prog ? "" : `<span class="ayuda">Sola: 1 h 30 antes del partido. Se puede cambiar.</span>`}</label></div>
+    <div class="botonera"><button type="button" class="btn sec chico" id="g-rep">↻ Repetir ${prog ? "el último programa" : "el último partido"}</button>${prog ? `<button type="button" class="btn sec chico" id="g-pred">⤓ Cargar el predeterminado</button><button type="button" class="btn sec chico" id="g-gpred">★ Guardar esto como predeterminado</button>` : ""}</div>
+    <div class="grupo"><b>Roles</b><div class="chips" id="g-roles">${RR.concat(["Otro"]).map((r) => `<button class="rol-chip" data-r="${esc(r)}">${esc(r)}</button>`).join("")}</div>
       <input type="text" id="g-otro" placeholder="Explicá el rol «Otro» (ej.: chofer, fotógrafo)" hidden><div id="g-bloques" style="display:flex;flex-direction:column;gap:10px"></div></div>
     <label>Notas para el mail (opcional)<textarea name="notas" rows="2" placeholder="Ej.: llevar acreditación, punto de encuentro"></textarea></label>
     <datalist id="dl-eq"></datalist><datalist id="dl-comp"><option>Campeonato Uruguayo</option><option>Copa AUF Uruguay</option><option>Copa Libertadores</option><option>Copa Sudamericana</option><option>Selección Uruguaya</option></datalist>
@@ -2869,6 +2881,7 @@ function convGenerar(cont, m) {
   otro.oninput = () => { otroTxt = otro.value.trim(); resumen(); };
   F.querySelectorAll("#g-roles .rol-chip").forEach((b) => (b.onclick = () => {
     const r = b.dataset.r; if (elegidos[r]) delete elegidos[r]; else elegidos[r] = new Set();
+    const io = orden.indexOf(r); if (io >= 0) orden.splice(io, 1); if (elegidos[r]) orden.unshift(r);   // el último rol tocado queda arriba
     b.classList.toggle("on", !!elegidos[r]); if (r === "Otro") { otro.hidden = !elegidos[r]; if (!otro.hidden) otro.focus(); } pintarBloques();
   }));
   const yaEseDia = (email) => N.fecha && CV.convocatorias.some((c) => c.fecha === N.fecha && c.estado !== "cancelada" && c.gente.some((g) => g.email === email && g.respuesta !== "rechaza"));
@@ -2876,7 +2889,7 @@ function convGenerar(cont, m) {
   const abiertos = new Set(), emergencia = new Set();   // emergencia: "rol|email" elegidos sin tener el rol
   function pintarBloques() {
     bloques.innerHTML = "";
-    ROLES_CONV.concat(["Otro"]).filter((r) => elegidos[r]).forEach((r) => {
+    orden.filter((r) => elegidos[r]).concat(Object.keys(elegidos).filter((r) => !orden.includes(r))).forEach((r) => {
       const todos = (CV.convocables || []).slice().sort((a, b) => a.nombre.localeCompare(b.nombre)), libre = r === "Otro";
       const con = libre ? todos : todos.filter((p) => p.roles.includes(r)), sin = libre ? [] : todos.filter((p) => !p.roles.includes(r));
       const B = h(`<div class="rolbloque"><b>${esc(libre ? "Otro" + (otroTxt ? ": " + otroTxt : "") : r)}</b><div class="chips"></div></div>`), Ch = B.querySelector(".chips");
@@ -2897,16 +2910,36 @@ function convGenerar(cont, m) {
     if (Object.keys(elegidos).length) bloques.appendChild(h(`<small style="color:var(--gris);font-weight:600">En cada rol aparecen solo quienes lo tienen asignado. «+ Otro (emergencia)» muestra al resto. En rojo y bloqueados: cargaron ausencia ese día.</small>`));
     resumen();
   }
-  F.querySelector("#g-rep").onclick = () => {   // mismos roles y personas que la última (los que tienen ausencia ese día quedan afuera)
-    const ult = CV.convocatorias.filter((c) => c.estado !== "cancelada").sort((a, b) => String(b.creada).localeCompare(String(a.creada)))[0];
-    if (!ult) { aviso("Todavía no hay convocatorias para repetir", true); return; }
-    Object.keys(elegidos).forEach((k) => delete elegidos[k]); emergencia.clear(); let afuera = 0;
-    ult.gente.forEach((g) => { const p = (CV.convocables || []).find((x) => x.email === g.email); if (!p) return; if (N.fecha && ausenteEl(p, N.fecha)) { afuera++; return; }
-      const r = ROLES_CONV.includes(g.rol) ? g.rol : "Otro"; if (r === "Otro") { otroTxt = String(g.rol).replace(/^Otro:?\s*/i, ""); otro.value = otroTxt; otro.hidden = false; }
-      (elegidos[r] = elegidos[r] || new Set()).add(g.email); if (r !== "Otro" && !p.roles.includes(r)) { emergencia.add(r + "|" + g.email); abiertos.add(r); } });
+  // carga un equipo (de la última convocatoria o del predeterminado): roles y personas, todo editable; quien tiene ausencia ese día queda afuera
+  const cargarEquipo = (gente) => {
+    Object.keys(elegidos).forEach((k) => delete elegidos[k]); emergencia.clear(); orden.length = 0; let afuera = 0;
+    (gente || []).forEach((g) => { const p = (CV.convocables || []).find((x) => x.email === g.email); if (!p) return; if (N.fecha && ausenteEl(p, N.fecha)) { afuera++; return; }
+      const r = RR.includes(g.rol) ? g.rol : "Otro"; if (r === "Otro") { otroTxt = String(g.rol).replace(/^Otro:?\s*/i, ""); otro.value = otroTxt; otro.hidden = false; }
+      if (!elegidos[r]) { elegidos[r] = new Set(); orden.push(r); } elegidos[r].add(g.email); if (r !== "Otro" && !p.roles.includes(r)) { emergencia.add(r + "|" + g.email); abiertos.add(r); } });
     F.querySelectorAll("#g-roles .rol-chip").forEach((b) => b.classList.toggle("on", !!elegidos[b.dataset.r]));
-    pintarBloques(); aviso("Cargué el equipo de " + partidoTxt(ult) + (afuera ? " · " + afuera + " quedaron afuera por ausencia" : "") + ". Revisalo antes de enviar.");
+    pintarBloques(); return afuera;
   };
+  F.querySelector("#g-rep").onclick = () => {   // la última del mismo tipo (partido o programa)
+    const ult = CV.convocatorias.filter((c) => c.estado !== "cancelada" && (c.competencia === "Programa") === prog).sort((a, b) => String(b.creada).localeCompare(String(a.creada)))[0];
+    if (!ult) { aviso("Todavía no hay " + (prog ? "convocatorias de programa" : "convocatorias de partido") + " para repetir", true); return; }
+    const afuera = cargarEquipo(ult.gente);
+    if (prog) { ["hora", "previa"].forEach((k) => { if (ult[k]) { N[k] = ult[k]; campo(k).value = ult[k]; } }); previaAMano = !!N.previa; if (ult.locacion) ponerLoc(ult.locacion); }
+    aviso("Cargué el equipo de " + partidoTxt(ult) + " (" + fechaTxt(ult.fecha) + ")" + (afuera ? " · " + afuera + " quedaron afuera por ausencia" : "") + ". Cambiá lo que haga falta antes de enviar.");
+  };
+  if (prog) {
+    const PL = () => CV.plantillaPrograma;
+    const usarPred = (avisar) => { const P = PL(); if (!P) { if (avisar) aviso("Todavía no hay un predeterminado: armá el equipo y tocá «Guardar esto como predeterminado».", true); return; }
+      if (P.local) { N.local = P.local; campo("local-prog").value = P.local; }
+      ["hora", "previa", "notas"].forEach((k) => { if (P[k]) { N[k] = P[k]; campo(k).value = P[k]; } }); previaAMano = !!N.previa; if (P.locacion) ponerLoc(P.locacion);
+      const afuera = cargarEquipo(P.gente); if (avisar) aviso("Cargué el equipo predeterminado" + (afuera ? " · " + afuera + " quedaron afuera por ausencia" : "") + ".");
+    };
+    campo("local-prog").oninput = (e) => (N.local = e.target.value);
+    F.querySelector("#g-pred").onclick = () => usarPred(true);
+    F.querySelector("#g-gpred").onclick = async (ev) => { const b = ev.target; b.disabled = true;
+      try { CV = await srv("guardarPlantillaPrograma", Object.assign({}, N, { gente: lista() })); aviso("Listo: ese es el equipo predeterminado del programa."); } catch (e) { aviso(e.message || String(e), true); } b.disabled = false; };
+    setTimeout(() => usarPred(false), 0);   // al elegir «Programa» arranca del predeterminado
+  }
+  F.querySelectorAll("#g-tipo .chip").forEach((b) => (b.onclick = () => { if (tipoConv === b.dataset.t) return; tipoConv = b.dataset.t; convGenerar(cont, m); }));
   const lista = () => { const out = []; Object.entries(elegidos).forEach(([r, s]) => s.forEach((email) => out.push({ email, rol: r === "Otro" ? "Otro" + (otroTxt ? ": " + otroTxt : "") : r, emergencia: emergencia.has(r + "|" + email) }))); return out; };
   function resumen() {
     const L = lista(), per = new Set(L.map((x) => x.email)).size;
@@ -2934,7 +2967,10 @@ function convGenerar(cont, m) {
       S.appendChild(b);
     });
   };
-  partidosProximos((parcial) => pintarSug(parcial, true)).then((P) => pintarSug(P, false));   // primero ESPN; cuando llega la AUF, la lista completa
+  if (prog) { const S = cont.querySelector("#gs"); S.closest(".card").innerHTML = `<h2><i style="background:var(--celeste)"></i>Equipo predeterminado del programa</h2>
+      <span class="ayuda" style="font-size:13px;font-weight:600">Al elegir «Programa» se carga solo: equipo, roles, horario, llegada y lugar. Cambiá lo que haga falta para este día y enviá. Para cambiar la base, armá el equipo y tocá «★ Guardar esto como predeterminado».</span>
+      ${CV.plantillaPrograma ? `<div class="aviso" style="margin-top:8px">${esc((CV.plantillaPrograma.gente || []).length)} personas · ${esc(CV.plantillaPrograma.hora || "sin horario")}${CV.plantillaPrograma.locacion ? " · " + esc(CV.plantillaPrograma.locacion) : ""}</div>` : `<div class="aviso" style="margin-top:8px">Todavía no hay uno guardado.</div>`}`; }
+  else partidosProximos((parcial) => pintarSug(parcial, true)).then((P) => pintarSug(P, false));   // primero ESPN; cuando llega la AUF, la lista completa
 }
 
 /* ---------- Noticias del día: la lista que arma la tarea de las 18:00 y la elección (radio / OBS) ---------- */
