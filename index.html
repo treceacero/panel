@@ -755,6 +755,7 @@ VISTAS.noticias = (m) => {
     subNoticias() + (PERM("noticias") === "cargar" ? `<div class="aviso">Lo que cargues queda <b>pendiente</b> hasta que alguien con permiso lo apruebe. No sale al aire solo.</div>` : "") + `<div class="cuerpo n"><div class="card lista" id="lista"></div><div class="card form" id="ed"></div><div class="card vista" id="vn"></div></div>`;
   enlazarSubNoticias(m);
   const bNu = m.querySelector("#nueva"); if (bNu) bNu.onclick = () => { elegidaN = "nueva"; ir("noticias"); };
+  if (bNu) { const g = leerBorradorN(); bNu.textContent = tieneTextoN(g) && elegidaN !== "nueva" ? "⚠ Noticia sin guardar: seguir" : "+ Nueva noticia"; }
   const L = m.querySelector("#lista"), yL = L.scrollTop; L.innerHTML = "";
   const nA = todas.filter((n) => esSi(n.mostrar)).length;
   L.appendChild(h(`<div class="filtros">${[["aire", "Al aire (" + nA + ")"], ["pendientes", "Pendientes" + (nP ? " (" + nP + ")" : "")], ["guardadas", "Guardadas"], ["todas", "Todas"]].map(([k, t]) => `<button class="chip${k === filtroN ? " on" : ""}" data-f="${k}">${t}</button>`).join("")}</div>`));
@@ -801,6 +802,16 @@ VISTAS.noticias = (m) => {
 /* ---------- Archivo de fotos: las ya usadas, para reciclar. Cada semana se decide cuál dejar y cuál borrar ---------- */
 let FOT = null, filtroF = "revisar", buscaF = "";
 const borradoresN = {};   // borrador de cada noticia abierta (clave "f<fila>" o "nueva"): no se pierde si la pantalla se redibuja
+// la noticia nueva además queda en este navegador mientras se escribe: si la página se recarga, se corta la conexión
+// o vence la sesión, se recupera al volver. Solo se borra cuando el guardado quedó confirmado en la planilla (o se descarta a mano)
+const BOR_N = "panel13a0.noticiaNueva";
+function leerBorradorN() { try { const b = JSON.parse(guardado(BOR_N) || "null"); return b && b.st && Date.now() - (b.t || 0) < 14 * 864e5 ? b : null; } catch (e) { return null; } }
+function tieneTextoN(b) { return !!b && (!!b.fotoNueva || ["titular", "parrafo_1", "parrafo_2", "fuentes", "imagen"].some((k) => String(b.st[k] || "").trim())); }
+function guardarBorradorN(b) {
+  if (!tieneTextoN(b)) { guardado(BOR_N, null); return; }
+  const o = { st: b.st, fotoNueva: b.fotoNueva, t: Date.now() };
+  try { localStorage.setItem(BOR_N, JSON.stringify(o)); } catch (e) { try { localStorage.setItem(BOR_N, JSON.stringify(Object.assign(o, { fotoNueva: null, sinFoto: true }))); } catch (e2) {} }
+}
 async function vistaFotos(m) {
   m.innerHTML = titulo("Noticias") + subNoticias() + `<div class="aviso">Cargando el archivo de fotos…</div>`;
   enlazarSubNoticias(m);
@@ -896,8 +907,10 @@ function editorNoticia(E, V, n, todas) {
   // borrador de esta noticia: lo que se escribe y la foto encuadrada siguen acá aunque la pantalla se redibuje (otro guardado, la actualización automática)
   const clave = n.fila ? "f" + n.fila : "nueva", sinCambios = (b) => !b.fotoNueva && COLS_N.every((k) => (b.st[k] || "") === (n[k] || ""));
   let bor = borradoresN[clave]; if (!bor || (n.fila && sinCambios(bor))) bor = borradoresN[clave] = { st: Object.assign({}, n), fotoNueva: null };
+  if (!n.fila && !tieneTextoN(bor)) { const g = leerBorradorN(); if (tieneTextoN(g)) { bor = borradoresN[clave] = { st: Object.assign({}, n, g.st, { fila: null }), fotoNueva: g.fotoNueva || null }; aviso("Recuperé la noticia que no se había guardado" + (g.sinFoto ? " (la foto no entraba: volvé a cargarla)" : "")); } }
+  const persistir = n.fila ? () => {} : debounce(() => guardarBorradorN(bor), 300);
   const st = bor.st; let fotoNueva = bor.fotoNueva;   // fotoNueva = dataURL encuadrado, se sube al guardar
-  const ponerFoto = (u) => { fotoNueva = u; bor.fotoNueva = u; };
+  const ponerFoto = (u) => { fotoNueva = u; bor.fotoNueva = u; persistir(); };
   // vista previa (tanda y TITULARES) con la noticia que se está editando
   let pvT = V.querySelector(".pv.negro"), pvE = V.querySelector(".pv:not(.negro)"); const nuevas = !pvT;   // las vistas previas siguen entre noticia y noticia: se les manda la que se elige
   if (nuevas) {
@@ -906,10 +919,11 @@ function editorNoticia(E, V, n, todas) {
     V.appendChild(h(`<div class="tit"><span class="et az">TITULARES</span><span>Así sale en la pantalla E</span></div>`));
     pvE = vistaPrevia(WEB + "cam-E-titulares.html?previa&png"); V.appendChild(pvE);
   }
-  const mandar = debounce(() => {
+  const mandar0 = debounce(() => {
     const msj = { panel13a0: true, noticia: { tit: st.titular || " ", cat: st.categoria, parrafos: [st.parrafo_1, st.parrafo_2].filter((x) => (x || "").trim()), img: fotoNueva || img(st.imagen).replace("sz=w600", "sz=w1600"), credito: st.credito_foto } };
     [pvT, pvE].forEach((pv) => { try { pv.querySelector("iframe").contentWindow.postMessage(msj, "*"); } catch (e) {} });
   }, 250);
+  const mandar = () => { persistir(); mandar0(); };
   V.mandarN = mandar;
   if (nuevas) [pvT, pvE].forEach((pv) => pv.querySelector("iframe").addEventListener("load", () => setTimeout(() => V.mandarN(), 1500))); else mandar();
 
@@ -945,7 +959,7 @@ function editorNoticia(E, V, n, todas) {
   const fTx = gF.querySelector("textarea"), fCnt = gF.querySelector(".contador"), fL = gF.querySelector(".f-links");
   const pintarF = () => { const u = urlsDe(st.fuentes); fCnt.textContent = u.length + (u.length === 1 ? " fuente" : " fuentes"); fCnt.style.color = u.length >= 2 ? "var(--verde)" : "var(--rojo)";
     fL.innerHTML = u.map((x) => { const l = x.replace(/^.*?(https?:)/, "$1"); let d = l; try { d = new URL(l).hostname.replace(/^www\./, ""); } catch (e) {} return `<a href="${esc(l)}" target="_blank" rel="noopener">↗ ${esc(d)}</a>`; }).join(""); };
-  fTx.oninput = () => { st.fuentes = fTx.value; pintarF(); }; fTx.onchange = () => autoG("fuentes"); pintarF();
+  fTx.oninput = () => { st.fuentes = fTx.value; pintarF(); persistir(); }; fTx.onchange = () => autoG("fuentes"); pintarF();
   E.appendChild(gF);
   // foto: subir y encuadrar
   const g = h(`<div class="grupo"><b>Foto</b></div>`); E.appendChild(g);
@@ -1003,16 +1017,23 @@ function editorNoticia(E, V, n, todas) {
       const datos = {}; COLS_N.forEach((k) => (datos[k] = st[k] || ""));
       if (st.fila && puede("noticias")) {   // noticia que ya existe: se guarda lo que cambió (foto incluida) y la pantalla queda como está, sin recargar las noticias
         autoG.apply(null, COLS_N.filter((k) => k !== "mostrar")); pintarActual(); bG.disabled = false; bG.textContent = "Guardar"; aviso("Guardado ✓ · OBS lo toma en unos segundos" + (sinCredito ? " · la foto quedó sin crédito" : "")); return; }
-      const nueva = !st.fila, fila = await guardar("guardarNoticia", st.fila, datos);
+      const nueva = !st.fila; if (nueva) guardarBorradorN(bor);
+      const fila = await guardar("guardarNoticia", st.fila, datos);
+      if (nueva) {   // se confirma releyendo la planilla: si la fila no tiene esta noticia, no se suelta el borrador
+        bG.textContent = "Confirmando…";
+        let ok = false; try { const d = await srv("leer"), t2 = d.noticias || [], c2 = cab(t2), r = t2[fila - 1] || []; ok = !!fila && String(r[c2.indexOf("titular")] || "").trim() === String(datos.titular || "").trim() && String(r[c2.indexOf("parrafo_1")] || "").trim() === String(datos.parrafo_1 || "").trim(); if (ok) { d.historial = D.historial; D = d; guardarCopia(); } } catch (e) {}
+        if (!ok) throw new Error("el servidor contestó, pero la noticia no aparece en la planilla");
+        guardado(BOR_N, null);
+      }
       const t = D.noticias, c = cab(t); while (t.length < fila) t.push(c.map(() => ""));
-      COLS_N.forEach((k) => (t[fila - 1][c.indexOf(k)] = datos[k])); if (PERM("noticias") === "cargar") ponerN(fila, "mostrar", "PENDIENTE"); else if (nueva && !datos.mostrar) ponerN(fila, "mostrar", "SI");
+      if (!nueva) COLS_N.forEach((k) => (t[fila - 1][c.indexOf(k)] = datos[k])); if (PERM("noticias") === "cargar") ponerN(fila, "mostrar", "PENDIENTE"); else if (nueva && !datos.mostrar) ponerN(fila, "mostrar", "SI");
       delete borradoresN[clave]; elegidaN = { fila }; ir("noticias"); ponerAlDia();
-    } catch (e) { aviso("No se guardó: " + (e.message || String(e)) + ". Lo que cargaste sigue acá; probá «Guardar» de nuevo.", true); bG.disabled = false; bG.textContent = "Guardar"; }
+    } catch (e) { if (!st.fila) guardarBorradorN(bor); aviso("No se guardó: " + (e.message || String(e)) + ". Lo que cargaste sigue acá (y queda guardado en esta compu); probá «Guardar» de nuevo.", true); bG.disabled = false; bG.textContent = "Guardar"; }
   };
   if (!st.fila || fotoNueva) {   // descartar lo que no se guardó (noticia nueva o foto nueva sin guardar)
     const bx = h(`<button class="btn sec chico">✕ Descartar lo no guardado</button>`); let arm = 0;
     bx.onclick = () => { if (!arm) { bx.textContent = "¿Seguro? Se pierde lo no guardado"; arm = setTimeout(() => { arm = 0; bx.textContent = "✕ Descartar lo no guardado"; }, 4000); return; }
-      delete borradoresN[clave]; if (!st.fila) elegidaN = null; ir("noticias"); aviso("Descartado"); };
+      delete borradoresN[clave]; if (!st.fila) { elegidaN = null; guardado(BOR_N, null); } ir("noticias"); aviso("Descartado"); };
     pie.appendChild(bx);
   }
   if (bA) bA.onclick = async () => { st.mostrar = esSi(st.mostrar) ? "NO" : "SI"; if (!st.fila) { bA.textContent = esSi(st.mostrar) ? "Sacar del aire" : "Poner al aire"; return; } const v = st.mostrar; rapido("guardarNoticia", [st.fila, { mostrar: v }], () => ponerN(st.fila, "mostrar", v)); };
@@ -3146,7 +3167,8 @@ function salir() { if (API) { srv("salir").catch(() => {}); guardado("panel13a0.
     const copia = leerCopia(), sec = new URLSearchParams(location.search).get("seccion") || "inicio";
     if (copia) { D = copia; document.body.classList.add("actualizando"); document.getElementById("cargando").remove(); ir(sec); fresco().then(traerHistorial); }
     else { await cargar(); document.getElementById("cargando").remove(); ir(sec); }
-    precargar(); }
+    precargar();
+    if (tieneTextoN(leerBorradorN())) setTimeout(() => aviso("Hay una noticia sin guardar en esta compu: entrá a Noticias y tocá «⚠ Noticia sin guardar: seguir»", true), 1500); }
   catch (e) { document.getElementById("cargando").innerHTML = `<div style="max-width:560px;text-align:center;padding:20px">${esc(e.message || e)}</div>`; }
 })();
 </script>
