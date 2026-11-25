@@ -952,12 +952,12 @@ function editorNoticia(E, V, n, todas) {
   inCat.oninput = () => { st.categoria = inCat.value; mandar(); }; inCred.oninput = () => { st.credito_foto = inCred.value; mandar(); const a = E.querySelector(".foto-actual .ayuda"); if (a) a.innerHTML = st.credito_foto ? "Foto: " + esc(st.credito_foto) : '<span style="color:var(--gris)">Sin crédito (opcional)</span>'; };
   inCat.onchange = () => autoG("categoria"); inCred.onchange = () => autoG("credito_foto");
   E.appendChild(fila2);
-  // fuentes consultadas: mínimo dos, con link, para poder leerlas
+  // fuentes consultadas: opcionales (las noticias que escribe una persona no las piden)
   const urlsDe = (t) => String(t || "").split(/\n|\s+(?=https?:)/).map((x) => x.trim()).filter((x) => /^https?:\/\/\S+\.\S+/.test(x.replace(/^.*?(https?:)/, "$1")));
-  const gF = h(`<div class="lbl fuentes"><div class="lbl-fila"><span>Fuentes consultadas (mínimo 2, con link)</span><span class="contador"></span></div>
+  const gF = h(`<div class="lbl fuentes"><div class="lbl-fila"><span>Fuentes consultadas (opcional)</span><span class="contador"></span></div>
     <textarea rows="3" placeholder="Un link por línea. Ej.:&#10;https://www.ovaciondigital.com.uy/…&#10;https://www.elpais.com.uy/…">${esc(st.fuentes || "")}</textarea><div class="f-links"></div></div>`);
   const fTx = gF.querySelector("textarea"), fCnt = gF.querySelector(".contador"), fL = gF.querySelector(".f-links");
-  const pintarF = () => { const u = urlsDe(st.fuentes); fCnt.textContent = u.length + (u.length === 1 ? " fuente" : " fuentes"); fCnt.style.color = u.length >= 2 ? "var(--verde)" : "var(--rojo)";
+  const pintarF = () => { const u = urlsDe(st.fuentes); fCnt.textContent = u.length + (u.length === 1 ? " fuente" : " fuentes"); fCnt.style.color = u.length ? "var(--verde)" : "var(--gris)";
     fL.innerHTML = u.map((x) => { const l = x.replace(/^.*?(https?:)/, "$1"); let d = l; try { d = new URL(l).hostname.replace(/^www\./, ""); } catch (e) {} return `<a href="${esc(l)}" target="_blank" rel="noopener">↗ ${esc(d)}</a>`; }).join(""); };
   fTx.oninput = () => { st.fuentes = fTx.value; pintarF(); persistir(); }; fTx.onchange = () => autoG("fuentes"); pintarF();
   E.appendChild(gF);
@@ -1007,7 +1007,6 @@ function editorNoticia(E, V, n, todas) {
   const pie = h(`<div class="pie"><button class="btn am">${puede("noticias") ? "Guardar" : "Mandar a aprobar"}</button>${puede("noticias") ? `<button class="btn sec">${esSi(st.mostrar) ? "Sacar del aire" : "Poner al aire"}</button>` : ""}</div>`);
   const [bG, bA] = pie.querySelectorAll("button");
   bG.onclick = async () => {
-    if (!st.fila && urlsDe(st.fuentes).length < 2) { aviso("Faltan fuentes: poné al menos dos links de donde salió la noticia", true); fTx.focus(); return; }
     const fotoCambia = !!fotoNueva || (st.imagen || "") !== (guardadoN.imagen || "");
     const sinCredito = fotoCambia && (st.imagen || fotoNueva) && !String(st.credito_foto || "").trim();   // se puede guardar igual: solo se avisa
     bG.disabled = true; bG.textContent = "Guardando…";
